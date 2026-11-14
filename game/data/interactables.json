@@ -1,0 +1,22 @@
+{
+ "door_wood": {
+  "kind": "door",
+  "name": "Wooden Door",
+  "sprite": "door",
+  "use_range": 1.8,
+  "closed_collision": [[-0.26, -0.42, -0.04, 0.42]],
+  "open_collision": [[-0.12, -0.46, 0.72, -0.32]],
+  "sounds": {"open": "door_open", "close": "door_close"}
+ },
+ "chest_wood": {
+  "kind": "chest",
+  "name": "Wooden Chest",
+  "sprite": "chest",
+  "use_range": 1.8,
+  "keep_open_range": 2.6,
+  "capacity": 8,
+  "columns": 4,
+  "collision": [[-0.42, -0.29, 0.42, 0.29]],
+  "sounds": {"open": "chest_open", "close": "chest_close"}
+ }
+}

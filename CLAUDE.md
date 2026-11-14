@@ -11,3 +11,10 @@
 - Never invent combat, class, crafting or economy systems as requirements.
 - After changing forge models, re-run `python3 tools/forge/build.py` and
   verify with the headless screenshot mode (see README).
+- Project state and known issues: `PROJECT_STATE.md`. Interaction/item
+  contract: `docs/INTERACTION_SYSTEMS.md`.
+- All item and world-object changes go through `InteractionSystem.submit()`
+  with an `InteractionCommand`. UI and views must never mutate `ItemStore`
+  or `Interactable` state directly.
+- Run `godot --headless --path game --script res://tests/run_tests.gd` after
+  touching anything in `game/scripts/sim/`.

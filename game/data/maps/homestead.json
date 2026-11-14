@@ -1352,5 +1352,40 @@
  "player_start": [
   17.5,
   10.6
+ ],
+ "entities": [
+  {
+   "id": "cottage_door",
+   "def": "door_wood",
+   "x": 15.06,
+   "y": 9.55
+  },
+  {
+   "id": "cottage_chest",
+   "def": "chest_wood",
+   "x": 12.85,
+   "y": 8.25,
+   "contents": [
+    [
+     "gold_coins",
+     25
+    ],
+    [
+     "red_apple",
+     3
+    ],
+    [
+     "healing_potion",
+     1
+    ]
+   ]
+  }
+ ],
+ "ground_items": [
+  {
+   "def": "iron_sword",
+   "x": 18.4,
+   "y": 12.2
+  }
  ]
 }

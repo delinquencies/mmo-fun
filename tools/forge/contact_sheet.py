@@ -18,6 +18,9 @@ def lineup(set_id):
     a = m["animations"]["player"]
     fw, fh = a["frame_size"]
     walk = Image.open(os.path.join(d, a["anims"]["walk"]["file"])).convert("RGBA")
+    ov = a.get("overlays", {}).get("iron_sword", {}).get("walk")
+    if ov:  # show the equipped iron sword layer on the lineup
+        walk.alpha_composite(Image.open(os.path.join(d, ov["file"])).convert("RGBA"))
     frames = [walk.crop((2 * fw, k * fh, 3 * fw, (k + 1) * fh)) for k in range(8)]
     props = [Image.open(os.path.join(d, m["sprites"][n]["file"])).convert("RGBA")
              for n in ("barrel", "crate", "fence_x", "signpost", "bush_berry", "rock_medium", "flowers_purple")]

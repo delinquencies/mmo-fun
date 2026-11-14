@@ -78,9 +78,12 @@ def _ray_box(p0, bmin, bmax):
 
 
 def render(scene, tile_w, ss=3, canvas=None, outline=True, shadow=True,
-           max_steps=200, quantize=True, light_scale=1.0):
+           max_steps=200, quantize=True, light_scale=1.0, mask_materials=None):
+    """mask_materials: optional list of Material objects; the result's `mask`
+    marks native pixels whose visible surface belongs to them (used to cut a
+    weapon layer out of a full-character render with correct occlusion)."""
     recs = scene.array()
-    bmin, bmax = recs[:, 2:5].min(0), recs[:, 5:8].max(0)
+    bmin, bmax = scene.bounds()
     if canvas is None:
         canvas = canvas_for(bmin, bmax, tile_w, with_shadow=shadow)
     ox, oy, cw, ch = canvas
@@ -104,11 +107,15 @@ def render(scene, tile_w, ss=3, canvas=None, outline=True, shadow=True,
     cover = np.zeros(npx)
     depth = np.full(npx, np.nan)
     hid = cand[hit]
+    msub = np.zeros(npx)
     if hid.size:
         th = t[hit]
         p = np.ascontiguousarray(p0[hid] + TOWARD_CAM[None, :] * th[:, None])
         n, rec_i, ao, sh = sdf.k_shade_geom(recs, p, 0.7 / k_ss, SUN)
         mat = recs[rec_i, 1].astype(int)
+        if mask_materials:
+            ids = [i for i, m in enumerate(scene.materials) if any(m is mm for mm in mask_materials)]
+            msub[hid] = np.isin(mat, ids).astype(float)
         alb = np.zeros((hid.size, 3))
         emi = np.zeros((hid.size, 3))
         nn = n.copy()
@@ -162,7 +169,9 @@ def render(scene, tile_w, ss=3, canvas=None, outline=True, shadow=True,
     rgba[..., 3] = np.where(alpha, 255, 0)
     rgba[~alpha, :3] = 0
     gs = down(gshadow.reshape(H, W)) > 0.45
-    return Render(rgba, gs, (-ox, -oy), dnat, tile_w, (ox, oy))
+    out = Render(rgba, gs, (-ox, -oy), dnat, tile_w, (ox, oy))
+    out.mask = (down(msub.reshape(H, W)) >= 0.5) & alpha
+    return out
 
 
 def _outline(rgb, alpha, depth):

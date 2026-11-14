@@ -7,6 +7,7 @@ eight facings.  Height ~1.8 world units incl. hair: ~70 px at the 64-px tile set
 import numpy as np
 
 from sdf import Scene
+from models.items import add_sword
 from materials import Material, ramp, wood_grain, _c
 from noise import fbm3, value3, hash01
 
@@ -42,7 +43,7 @@ def _rot_pitch(v, a):
     return np.array([x * np.cos(a) + z * np.sin(a), v[1], -x * np.sin(a) + z * np.cos(a)])
 
 
-def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0):
+def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0, weapon="iron_sword"):
     """Return (Scene, anchors) for a walk phase in radians. walk=0 -> idle."""
     s = Scene()
     sw = np.sin(phase) * walk
@@ -128,17 +129,14 @@ def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0):
 
     arm(+1, -0.45 * sw, False)
     hand = arm(-1, 0.18 * sw, True)
-    # sword in right hand, held low with the tip forward and down
+    # weapon in the right hand, held low with the tip forward and down
     bdir = np.array([0.62, -0.18, -0.52])
-    bdir = bdir / np.linalg.norm(bdir)
-    hilt = hand + bdir * 0.06
-    tip = hilt + bdir * 0.78
-    s.capsule(hand - bdir * 0.1, hand + bdir * 0.04, 0.022, LEATHER)
-    s.sphere(hand - bdir * 0.12, 0.03, BRASS)
-    perp = np.cross(bdir, np.array([0, 0, 1.0]))
-    perp = perp / np.linalg.norm(perp)
-    s.capsule(hilt - perp * 0.09, hilt + perp * 0.09, 0.02, BRASS)
-    s.capsule(hilt, tip, 0.03, STEEL, rb=0.008)
+    if weapon == "iron_sword":
+        hilt, tip = add_sword(s, hand, bdir)
+    else:
+        bdir = bdir / np.linalg.norm(bdir)
+        hilt = hand + bdir * 0.07
+        tip = hilt + bdir * 0.74
     anchors["blade_base"] = hilt
     anchors["blade_tip"] = tip
     anchors["head"] = head + np.array([0, 0, 0.2])

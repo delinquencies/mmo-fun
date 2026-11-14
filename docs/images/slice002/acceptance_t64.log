@@ -1,0 +1,57 @@
+-- step: 00_start  (player 17.50, 10.60)
+debug: vp=(1280, 720) main=(1280, 720) cell0=(1280, 720) door_screen=(545.64, 164.52) pick=cottage_door surface=(1280, 720)
+PASS  T01 hover detects the door
+PASS  T01 out-of-range cursor while 2.6 tiles away
+PASS  T01 door refuses to open from out of range
+PASS  T01 use cursor in range
+-- step: 01_door_hover  (player 15.97, 9.70)
+PASS  T01 double-click opens the door
+PASS  T01 door open feedback
+-- step: 02_door_open  (player 15.97, 9.70)
+PASS  T01 walked through the open doorway
+PASS  T04 chest window opened
+PASS  T04 chest lid open
+-- step: 03_chest_open  (player 13.69, 8.75)
+PASS  T04 dragged apples chest -> backpack
+-- step: 04_apples_in_backpack  (player 13.69, 8.75)
+PASS  T04 dragged apples back into chest slot 6
+PASS  T04 nothing duplicated or lost
+PASS  T06 coins moved once by rapid double-clicks
+PASS  T06 no duplication after 6 rapid double-clicks
+PASS  T06 coins back in chest
+PASS  T06 repeated drags conserve items
+PASS  T07 chest window closes when walking away
+PASS  T01 door closed again from outside
+PASS  T01 closed door blocks the doorway again
+PASS  T05 distant chest does not open
+PASS  T05 'too far away' feedback shown
+PASS  T05 invalid sound event
+-- step: 05_too_far  (player 16.04, 9.55)
+PASS  T02 hover detects the sword on the ground
+-- step: 06_sword_on_ground  (player 19.07, 11.98)
+PASS  T02 dragged sword from ground into backpack slot 5
+PASS  T02 sword sprite removed from world
+PASS  T03 sword equipped in main hand
+PASS  T03 UI reflects backpack/equipment state
+PASS  T03 weapon layer visible on the character
+-- step: 07_equipped  (player 19.07, 11.98)
+PASS  T05 off-hand (reserved) refused, potion stays in chest
+PASS  T05 reserved-slot feedback
+PASS  T05 potion cannot replace the sword in main hand
+PASS  T05 sword still equipped
+-- step: 08_invalid_drop  (player 13.69, 8.76)
+PASS  DoD dragged sword from hand onto the ground
+PASS  DoD hand empty, weapon layer gone
+PASS  DoD sword sprite back in the world
+-- step: 09_dropped  (player 16.39, 9.84)
+PASS  T07 backpack window dragged by its title bar
+PASS  T07 character kept walking while a window was dragged
+PASS  T07 backpack closed with its close button
+PASS  T07 backpack reopened with I
+PASS  T07 equipment toggled closed with P
+PASS  T07 equipment reopened
+-- step: 10_ui_scale_1_5  (player 18.34, 10.81)
+PASS  ALL item totals conserved across the run
+PASS  ALL ownership invariants hold
+
+scenario acceptance: 43 checks, 0 failures

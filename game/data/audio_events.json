@@ -1,0 +1,16 @@
+{
+ "_comment": "event name -> file in res://assets/audio/ (placeholders from tools/forge/sfx.py). Replace files or remap here.",
+ "door_open": {"file": "door_open.wav", "volume_db": -4},
+ "door_close": {"file": "door_close.wav", "volume_db": -4},
+ "chest_open": {"file": "chest_open.wav", "volume_db": -4},
+ "chest_close": {"file": "chest_close.wav", "volume_db": -6},
+ "item_pickup": {"file": "item_pickup.wav", "volume_db": -6},
+ "item_place": {"file": "item_place.wav", "volume_db": -6},
+ "coins": {"file": "coins.wav", "volume_db": -8},
+ "equip": {"file": "equip.wav", "volume_db": -6},
+ "unequip": {"file": "unequip.wav", "volume_db": -8},
+ "invalid": {"file": "invalid.wav", "volume_db": -6},
+ "window_open": {"file": "window_open.wav", "volume_db": -12},
+ "window_close": {"file": "window_close.wav", "volume_db": -12},
+ "ui_click": {"file": "ui_click.wav", "volume_db": -12}
+}

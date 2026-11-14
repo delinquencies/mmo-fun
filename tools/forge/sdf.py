@@ -17,6 +17,7 @@ import numpy as np
 SPHERE, ELLIPSOID, BOX, CAPSULE, CYLZ, GABLE, CYLAX, TORUSZ = range(8)
 REC = 40
 P0 = 23  # first parameter slot
+MODE = 39  # 0 = union, 1 = subtract (carves every union primitive)
 
 
 def rot_z_mat(a):
@@ -42,6 +43,8 @@ class Scene:
 
     # -- materials -------------------------------------------------------
     def _mid(self, m):
+        if m is None:
+            return -1
         k = id(m)
         if k not in self._mat_ids:
             self._mat_ids[k] = len(self.materials)
@@ -107,6 +110,13 @@ class Scene:
         return self._add(GABLE, mat, [*c, half_len, half_w, h0, h1, ax], lmin, lmax,
                          displace=displace, **kw)
 
+    def carve_box(self, c, half, round_=0.0, **kw):
+        """Subtract a box from the whole scene (doorways, hollow interiors)."""
+        self.box(c, half, None, round_=round_, **kw)
+        self.recs[-1][MODE] = 1.0
+        self.recs[-1][1] = -1
+        return self
+
     def torus_z(self, c, R_, r, mat, **kw):
         c = np.asarray(c, float)
         e = np.array([R_ + r, R_ + r, r])
@@ -118,7 +128,7 @@ class Scene:
         off = np.asarray(offset, float)
         for rec in other.recs:
             r = rec.copy()
-            r[1] = self._mid(other.materials[int(rec[1])])
+            r[1] = self._mid(other.materials[int(rec[1])]) if rec[1] >= 0 else -1
             R0 = rec[14:23].reshape(3, 3)
             T0 = rec[11:14]
             r[14:23] = (Rw @ R0).ravel()
@@ -134,6 +144,7 @@ class Scene:
 
     def bounds(self):
         a = self.array()
+        a = a[a[:, MODE] < 0.5]
         return a[:, 2:5].min(0), a[:, 5:8].max(0)
 
 
@@ -283,8 +294,15 @@ def _box_dist(rec, x, y, z):
 def scene_eval(recs, x, y, z):
     best = 1e9
     bi = -1
+    sub = -1e9
     for i in range(recs.shape[0]):
         bd = _box_dist(recs[i], x, y, z)
+        if recs[i, MODE] > 0.5:
+            if bd <= 0.04:
+                ds = -_prim(recs[i], x, y, z)
+                if ds > sub:
+                    sub = ds
+            continue
         if bd >= best:
             continue
         if bd > 0.04:
@@ -294,6 +312,8 @@ def scene_eval(recs, x, y, z):
         if d < best:
             best = d
             bi = i
+    if sub > best:
+        best = sub
     return best, bi
 
 

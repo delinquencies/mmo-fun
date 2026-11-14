@@ -20,7 +20,7 @@ sys.path.insert(0, HERE)
 from render import render, canvas_for, save_rgba, shadow_rgba, project  # noqa: E402
 from sdf import Scene  # noqa: E402
 import terrain  # noqa: E402
-from models import nature, props, buildings, characters  # noqa: E402
+from models import nature, props, buildings, characters, items  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 OUT = os.path.join(ROOT, "game", "assets", "generated")
@@ -66,9 +66,19 @@ def catalogue():
     add("lamppost", lambda: props.lamppost(), [{"circle": [0, 0, 0.14]}])
     add("log_pile", lambda: props.log_pile(), [{"rect": [-0.45, -0.38, 0.45, 0.38]}])
     add("trough", lambda: props.trough(), [{"rect": [-0.52, -0.22, 0.52, 0.22]}])
+    FW, FD, T, DY, DW = buildings.FW, buildings.FD, 0.2, buildings.DOOR_Y, buildings.DOOR_HALF_W
     add("cottage", lambda: buildings.cottage(),
-        [{"rect": [0, 0, buildings.FW, buildings.FD]}], sort="footprint")
+        [{"rect": [0, 0, T, FD]}, {"rect": [0, 0, FW, T]}, {"rect": [0, FD - T, FW, FD]},
+         {"rect": [FW - T, 0, FW, DY - DW]}, {"rect": [FW - T, DY + DW, FW, FD]},
+         {"rect": [1.2, 0, 1.8, 0.65]}], sort="footprint")
     return c
+
+
+# Multi-frame single-facing props (interactive objects). name -> (builder(frac), frames)
+FRAMED = {
+    "door": (buildings.door, 4),
+    "chest": (buildings.chest, 4),
+}
 
 
 def offset_of(r, world_pt):
@@ -97,6 +107,66 @@ def build_props(tile_w, outdir, only=None):
     return out
 
 
+def build_framed(tile_w, outdir):
+    out = {}
+    for name, (fn, n) in FRAMED.items():
+        t = time.time()
+        scenes = [fn(k / (n - 1)) for k in range(n)]
+        bmin = np.min([sc.bounds()[0] for sc in scenes], axis=0)
+        bmax = np.max([sc.bounds()[1] for sc in scenes], axis=0)
+        canvas = canvas_for(bmin, bmax, tile_w, with_shadow=True)
+        fw, fh = canvas[2], canvas[3]
+        sheet = np.zeros((fh, fw * n, 4), np.uint8)
+        shs = np.zeros((fh, fw * n), bool)
+        for k, sc in enumerate(scenes):
+            r = render(sc, tile_w, canvas=canvas)
+            sheet[:, k * fw:(k + 1) * fw] = r.rgba
+            shs[:, k * fw:(k + 1) * fw] = r.shadow
+        save_rgba(sheet, os.path.join(outdir, f"{name}.png"))
+        save_rgba(shadow_rgba(shs), os.path.join(outdir, f"{name}_shadow.png"))
+        out[name] = {"file": f"{name}.png", "shadow": f"{name}_shadow.png", "frames": n,
+                     "frame_size": [fw, fh], "size": [fw, fh], "pivot": [-canvas[0], -canvas[1]], "anchors": {}}
+        print(f"  {name:16s} {fw}x{fh} x {n} frames {time.time() - t:.1f}s", flush=True)
+    return out
+
+
+def build_items(tile_w, outdir):
+    out = {}
+    for item_id, fn in items.ITEM_MODELS.items():
+        r = render(fn(), tile_w)
+        name = f"item_{item_id}"
+        save_rgba(r.rgba, os.path.join(outdir, f"{name}.png"))
+        save_rgba(shadow_rgba(r.shadow), os.path.join(outdir, f"{name}_shadow.png"))
+        out[name] = {"file": f"{name}.png", "shadow": f"{name}_shadow.png",
+                     "size": list(r.size()), "pivot": list(map(int, r.pivot)), "anchors": {}}
+    print(f"  {len(out)} ground items", flush=True)
+    return out
+
+
+ICON_PX = 36
+
+
+def build_icons():
+    """Inventory icons: same camera and lighting, no ground shadow, fitted to ICON_PX."""
+    d = os.path.join(OUT, "ui", "icons")
+    os.makedirs(d, exist_ok=True)
+    for item_id, fn in items.ITEM_MODELS.items():
+        sc = items.ICON_MODELS.get(item_id, fn)()
+        tw = 64
+        for _ in range(3):
+            r = render(sc, tw, shadow=False)
+            a = r.rgba[..., 3] > 0
+            ys, xs = np.nonzero(a)
+            ext = max(ys.max() - ys.min() + 1, xs.max() - xs.min() + 1)
+            tw = max(16, int(tw * ICON_PX / ext))
+        r = render(sc, tw, shadow=False)
+        a = r.rgba[..., 3] > 0
+        ys, xs = np.nonzero(a)
+        crop = r.rgba[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+        save_rgba(crop, os.path.join(d, f"{item_id}.png"))
+    print(f"  icons -> {d}", flush=True)
+
+
 def _blade_visibility(r, base, tip):
     """Fraction of blade sample points not hidden behind the body (depth test)."""
     vis = 0
@@ -115,7 +185,11 @@ def _blade_visibility(r, base, tip):
     return vis / n
 
 
-def build_animated(tile_w, outdir, name, pose_fn, anims, bounds, frame_anchor_keys=()):
+def build_animated(tile_w, outdir, name, pose_fn, anims, bounds, frame_anchor_keys=(), overlays=None):
+    """overlays: {overlay_id: (pose_kwargs, mask_materials)}. The base sheet is rendered
+    with pose_kwargs_base = {weapon: None}; each overlay sheet holds only the pixels of
+    the masked materials taken from a full render, so drawing it over the base gives
+    correct occlusion in every facing."""
     """Render an 8-direction sprite sheet per animation. rows = directions."""
     bmin, bmax = np.array(bounds[0], float), np.array(bounds[1], float)
     canvas = canvas_for(bmin, bmax, tile_w, with_shadow=True)
@@ -126,11 +200,14 @@ def build_animated(tile_w, outdir, name, pose_fn, anims, bounds, frame_anchor_ke
         t = time.time()
         sheet = np.zeros((fh * 8, fw * nframes, 4), np.uint8)
         shs = np.zeros((fh * 8, fw * nframes), bool)
+        ov_sheets = {k: (np.zeros((fh * 8, fw * nframes, 4), np.uint8), np.zeros((fh * 8, fw * nframes), bool))
+                     for k in (overlays or {})}
         frame_anchors = []
         for di, d in enumerate(characters.DIRECTIONS):
             row = []
             for f in range(nframes):
-                res = pose_fn(*args_fn(f, nframes))
+                base_kw = {"weapon": None} if overlays else {}
+                res = pose_fn(*args_fn(f, nframes), **base_kw)
                 anchors = {}
                 if isinstance(res, tuple):
                     res, anchors = res
@@ -142,8 +219,17 @@ def build_animated(tile_w, outdir, name, pose_fn, anims, bounds, frame_anchor_ke
                 sheet[di * fh:(di + 1) * fh, f * fw:(f + 1) * fw] = r.rgba
                 shs[di * fh:(di + 1) * fh, f * fw:(f + 1) * fw] = r.shadow
                 fa = {k: offset_of(r, v) for k, v in wa.items()}
-                if "blade_base" in wa:
-                    fa["blade_visible"] = round(_blade_visibility(r, wa["blade_base"], wa["blade_tip"]), 2)
+                for ov, (kw, mats) in (overlays or {}).items():
+                    full, fanch = pose_fn(*args_fn(f, nframes), **kw)
+                    rf = render(Scene().extend(full, yaw=yaw), tile_w, canvas=canvas, mask_materials=mats)
+                    layer = np.where(rf.mask[..., None], rf.rgba, 0).astype(np.uint8)
+                    ov_sheets[ov][0][di * fh:(di + 1) * fh, f * fw:(f + 1) * fw] = layer
+                    ov_sheets[ov][1][di * fh:(di + 1) * fh, f * fw:(f + 1) * fw] = rf.shadow & ~r.shadow
+                    wb = R @ np.asarray(fanch["blade_base"], float)
+                    wt = R @ np.asarray(fanch["blade_tip"], float)
+                    fa["blade_base"] = offset_of(rf, wb)
+                    fa["blade_tip"] = offset_of(rf, wt)
+                    fa["blade_visible"] = round(_blade_visibility(rf, wb, wt), 2)
                 row.append(fa)
             frame_anchors.append(row)
         a0 = sheet[0:fh, 0:fw, 3] > 0  # direction S, frame 0
@@ -155,6 +241,11 @@ def build_animated(tile_w, outdir, name, pose_fn, anims, bounds, frame_anchor_ke
         save_rgba(shadow_rgba(shs), os.path.join(outdir, f"{name}_{anim}_shadow.png"))
         meta["anims"][anim] = {"file": f"{name}_{anim}.png", "shadow": f"{name}_{anim}_shadow.png",
                                "frames": nframes, "fps": fps, "anchors": frame_anchors}
+        for ov, (osheet, oshadow) in ov_sheets.items():
+            save_rgba(osheet, os.path.join(outdir, f"{name}_{anim}_{ov}.png"))
+            save_rgba(shadow_rgba(oshadow), os.path.join(outdir, f"{name}_{anim}_{ov}_shadow.png"))
+            meta.setdefault("overlays", {}).setdefault(ov, {})[anim] = {
+                "file": f"{name}_{anim}_{ov}.png", "shadow": f"{name}_{anim}_{ov}_shadow.png"}
         print(f"  {name}_{anim:8s} {fw}x{fh} x {nframes}f x 8 dirs  {time.time() - t:.1f}s", flush=True)
     return meta
 
@@ -194,16 +285,21 @@ def main():
         print(f"== set t{tw}", flush=True)
         if not only or "terrain" in only:
             manifest["terrain"] = build_terrain(tw, outdir)
-        prop_only = only - {"terrain", "player", "sheep"}
+        prop_only = only - {"terrain", "player", "sheep", "framed", "items", "icons"}
         if not only or prop_only:
             manifest.setdefault("sprites", {}).update(build_props(tw, outdir, prop_only or None))
+        if not only or "framed" in only:
+            manifest.setdefault("sprites", {}).update(build_framed(tw, outdir))
+        if not only or "items" in only:
+            manifest.setdefault("sprites", {}).update(build_items(tw, outdir))
         anims = manifest.setdefault("animations", {})
         if not only or "player" in only:
             anims["player"] = build_animated(
                 tw, outdir, "player", characters.adventurer_pose,
                 {"idle": (4, 4, lambda f, n: (0.0, 0.0, np.sin(f / n * 2 * np.pi))),
                  "walk": (8, 10, lambda f, n: (f / n * 2 * np.pi, 1.0, 0.0))},
-                ((-0.95, -0.95, 0.0), (0.95, 0.95, 2.0)))
+                ((-0.95, -0.95, 0.0), (0.95, 0.95, 2.0)),
+                overlays={"iron_sword": ({"weapon": "iron_sword"}, items.WEAPON_MATERIALS)})
         if not only or "sheep" in only:
             anims["sheep"] = build_animated(
                 tw, outdir, "sheep", characters.sheep_pose,
@@ -212,6 +308,8 @@ def main():
                 ((-0.65, -0.65, 0.0), (0.65, 0.65, 0.85)))
         with open(mpath, "w") as f:
             json.dump(manifest, f, indent=1)
+    if not only or "icons" in only:
+        build_icons()
     print("done")
 
 

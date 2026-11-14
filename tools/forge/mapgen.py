@@ -139,6 +139,13 @@ def main():
         "sheep": [{"x": 6.5, "y": 13.5}, {"x": 8.2, "y": 15.4}, {"x": 5.6, "y": 15.8}],
         "sheep_pen": [PADDOCK[0] + 0.5, PADDOCK[1] + 0.5, PADDOCK[2] - 0.5, PADDOCK[3] - 0.5],
         "player_start": [17.5, 10.6],
+        # Slice 002 interactables (definitions: game/data/interactables.json)
+        "entities": [
+            {"id": "cottage_door", "def": "door_wood", "x": COTTAGE[0] + 3.06, "y": COTTAGE[1] + 2.55},
+            {"id": "cottage_chest", "def": "chest_wood", "x": COTTAGE[0] + 0.85, "y": COTTAGE[1] + 1.25,
+             "contents": [["gold_coins", 25], ["red_apple", 3], ["healing_potion", 1]]},
+        ],
+        "ground_items": [{"def": "iron_sword", "x": 18.4, "y": 12.2}],
     }
     out = os.path.join(ROOT, "game", "data", "maps", "homestead.json")
     with open(out, "w") as f:

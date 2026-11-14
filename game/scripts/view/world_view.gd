@@ -12,7 +12,13 @@ var overlay: DebugOverlay
 var player: ActorSprite
 var sheep_views: Array[ActorSprite] = []
 var buildings: Array = []         # [BuildingSprite, world pos, footprint]
-var show_energy := true
+var show_energy := false          # E: preview the reusable blade-energy effect on a held weapon
+var entity_views: Dictionary = {} # entity id -> {node, shadow, meta, frame}
+var ground_views: Dictionary = {} # item uid -> {node, shadow, meta}
+var hovered := ""
+var selected := ""
+var drop_marker := DropMarker.new()
+var _pick_images: Dictionary = {} # texture file -> Image (for pixel-accurate picking)
 
 
 func setup(world_sim: WorldSim, asset_set: AssetSet) -> void:
@@ -62,6 +68,9 @@ func setup(world_sim: WorldSim, asset_set: AssetSet) -> void:
 		entities.add_child(node)
 		_add_effects(node, type, meta)
 
+	for id in sim.entities:
+		_add_entity_view(sim.entities[id])
+
 	for s in sim.sheep:
 		var sv := ActorSprite.new()
 		sv.setup(aset, "sheep")
@@ -74,6 +83,10 @@ func setup(world_sim: WorldSim, asset_set: AssetSet) -> void:
 	player.setup(aset, "player", true)
 	entities.add_child(player)
 	shadows.add_child(player.shadow)
+	shadows.add_child(player.overlay_shadow)
+	drop_marker.tile_w = tw
+	drop_marker.z_index = -5
+	add_child(drop_marker)
 
 	overlay = DebugOverlay.new()
 	overlay.view = self
@@ -93,16 +106,158 @@ func _add_effects(node: Node2D, type: String, meta: Dictionary) -> void:
 		node.add_child(Effects.brazier_flame(Vector2(anchors["flame"][0], anchors["flame"][1]), aset.tile_w))
 
 
+func _add_entity_view(ent: Interactable) -> void:
+	var meta := aset.sprite(ent.def.get("sprite", ""))
+	if meta.is_empty():
+		push_warning("no sprite for entity %s" % ent.id)
+		return
+	var node := Sprite2D.new()
+	node.texture = aset.texture(meta["file"])
+	node.centered = false
+	node.region_enabled = true
+	node.offset = -Vector2(meta["pivot"][0], meta["pivot"][1])
+	node.position = Iso.to_screen(ent.pos, aset.tile_w)
+	node.name = ent.id
+	entities.add_child(node)
+	var sh := Sprite2D.new()
+	sh.texture = aset.texture(meta["shadow"])
+	sh.centered = false
+	sh.region_enabled = true
+	sh.offset = node.offset
+	sh.position = node.position
+	shadows.add_child(sh)
+	var f := float(int(meta.get("frames", 1)) - 1) if ent.open else 0.0
+	entity_views[ent.id] = {"node": node, "shadow": sh, "meta": meta, "frame": f}
+	_set_entity_frame(ent.id, int(f))
+
+
+func _set_entity_frame(id: String, f: int) -> void:
+	var v: Dictionary = entity_views[id]
+	var fs: Array = v["meta"].get("frame_size", v["meta"]["size"])
+	var r := Rect2(f * fs[0], 0, fs[0], fs[1])
+	v["node"].region_rect = r
+	v["shadow"].region_rect = r
+
+
+## Keep ground-item sprites in step with the authoritative item store.
+func _sync_ground_items() -> void:
+	var live := {}
+	for uid in sim.items.world_items():
+		live[uid] = true
+		if not ground_views.has(uid):
+			var d := sim.items.def(sim.items.item(uid).def_id)
+			var meta := aset.sprite(d.world_sprite)
+			if meta.is_empty():
+				continue
+			var node := Sprite2D.new()
+			node.texture = aset.texture(meta["file"])
+			node.centered = false
+			node.offset = -Vector2(meta["pivot"][0], meta["pivot"][1])
+			var sh := Sprite2D.new()
+			sh.texture = aset.texture(meta["shadow"])
+			sh.centered = false
+			sh.offset = node.offset
+			entities.add_child(node)
+			shadows.add_child(sh)
+			ground_views[uid] = {"node": node, "shadow": sh, "meta": meta}
+		var pos := Iso.to_screen(sim.items.location(uid)["pos"], aset.tile_w)
+		ground_views[uid]["node"].position = pos
+		ground_views[uid]["shadow"].position = pos
+	for uid in ground_views.keys():
+		if not live.has(uid):
+			ground_views[uid]["node"].queue_free()
+			ground_views[uid]["shadow"].queue_free()
+			ground_views.erase(uid)
+
+
+func _sync_entities(dt: float) -> void:
+	for id in entity_views:
+		var ent: Interactable = sim.entities[id]
+		var v: Dictionary = entity_views[id]
+		var last := float(int(v["meta"].get("frames", 1)) - 1)
+		var target := last if ent.open else 0.0
+		var f: float = move_toward(v["frame"], target, dt * 14.0) if dt > 0.0 else target
+		if int(round(f)) != int(round(v["frame"])) or dt == 0.0:
+			_set_entity_frame(id, int(round(f)))
+		v["frame"] = f
+
+
+func node_for(id: String) -> Node2D:
+	if id.begins_with("item:"):
+		var uid := int(id.substr(5))
+		return ground_views[uid]["node"] if ground_views.has(uid) else null
+	return entity_views[id]["node"] if entity_views.has(id) else null
+
+
+## Pixel-accurate pick of the top-most interactable under a world-space pixel.
+func pick(px: Vector2) -> String:
+	var best := ""
+	var best_y := -INF
+	var cands: Array = []
+	for id in entity_views:
+		cands.append([id, entity_views[id]["node"]])
+	for uid in ground_views:
+		cands.append(["item:%d" % uid, ground_views[uid]["node"]])
+	for c in cands:
+		var node: Sprite2D = c[1]
+		var local: Vector2 = px - node.position - node.offset
+		var region := node.region_rect if node.region_enabled else Rect2(Vector2.ZERO, node.texture.get_size())
+		# ground items are tiny: accept a small margin around opaque pixels
+		var margin := 3 if String(c[0]).begins_with("item:") else 0
+		if not Rect2(Vector2.ZERO, region.size).grow(margin).has_point(local):
+			continue
+		if _opaque_near(node.texture, region, local, margin) and node.position.y > best_y:
+			best = c[0]
+			best_y = node.position.y
+	return best
+
+
+func _opaque_near(tex: Texture2D, region: Rect2, local: Vector2, margin: int) -> bool:
+	var key := tex.get_rid()
+	if not _pick_images.has(key):
+		_pick_images[key] = tex.get_image()
+	var img: Image = _pick_images[key]
+	for dy in range(-margin, margin + 1):
+		for dx in range(-margin, margin + 1):
+			var p := Vector2i(int(local.x) + dx, int(local.y) + dy)
+			if p.x < 0 or p.y < 0 or p.x >= int(region.size.x) or p.y >= int(region.size.y):
+				continue
+			if img.get_pixelv(Vector2i(region.position) + p).a > 0.5:
+				return true
+	return false
+
+
+func _apply_highlights(t: float) -> void:
+	for id in entity_views:
+		entity_views[id]["node"].modulate = Color.WHITE
+	for uid in ground_views:
+		ground_views[uid]["node"].modulate = Color.WHITE
+	var sel := node_for(selected)
+	if sel:
+		var k := 1.12 + 0.08 * sin(t * 6.0)
+		sel.modulate = Color(k, k, k * 0.9)
+	var hov := node_for(hovered)
+	if hov:
+		hov.modulate = Color(1.32, 1.26, 1.08)
+
+
 ## Pull state from the simulation.
 func sync(_dt: float) -> void:
 	var tw := aset.tile_w
+	_sync_ground_items()
+	_sync_entities(_dt)
+	_apply_highlights(Time.get_ticks_msec() / 1000.0)
+	var weapon := sim.items.equipped(WorldSim.PLAYER_ID, "main_hand")
+	var layer := sim.items.def(sim.items.item(weapon).def_id).paperdoll_layer if weapon else ""
+	player.set_overlay(layer)
 	player.position = Iso.to_screen(sim.player_pos, tw)
 	var anim := "walk" if sim.player_moving else "idle"
 	var f := int(floor(sim.player_anim_time * player.fps(anim)))
 	player.show_frame(anim, f, sim.player_facing)
 	if player.energy:
-		player.energy.enabled = show_energy
-		player.energy.visible = show_energy
+		var on := show_energy and layer != ""
+		player.energy.enabled = on
+		player.energy.visible = on
 	for k in sheep_views.size():
 		var s: Dictionary = sim.sheep[k]
 		var sv := sheep_views[k]
@@ -136,6 +291,45 @@ func _update_occlusion_fade(dt: float) -> void:
 		var behind: bool = local.x < float(fp[2]) and local.y < float(fp[3])
 		var screen_local := player.position - node.position
 		var covered := rect.grow(-4).has_point(screen_local + Vector2(0, -20.0 * aset.tile_w / 64.0))
-		var target := 0.55 if (behind and covered) else 1.0
+		var inside: bool = local.x > 0.0 and local.y > 0.0 and behind
+		var target := 1.0
+		if inside:
+			target = 0.32
+		elif behind and covered:
+			target = 0.55
 		var a: float = move_toward(node.modulate.a, target, dt * 3.0) if dt > 0.0 else target
 		node.modulate.a = a
+
+
+## A world-pixel point that is guaranteed to hit `id` (centroid of its opaque
+## pixels). Used by the scripted-input scenario runner.
+func pick_point(id: String) -> Vector2:
+	var node: Sprite2D = node_for(id)
+	if node == null:
+		return Vector2.INF
+	var region := node.region_rect if node.region_enabled else Rect2(Vector2.ZERO, node.texture.get_size())
+	var key := node.texture.get_rid()
+	if not _pick_images.has(key):
+		_pick_images[key] = node.texture.get_image()
+	var img: Image = _pick_images[key]
+	var acc := Vector2.ZERO
+	var n := 0
+	for y in int(region.size.y):
+		for x in int(region.size.x):
+			if img.get_pixel(int(region.position.x) + x, int(region.position.y) + y).a > 0.5:
+				acc += Vector2(x, y)
+				n += 1
+	if n == 0:
+		return Vector2.INF
+	var c := acc / n
+	# snap to the nearest opaque pixel
+	var best := c
+	var bd := INF
+	for y in int(region.size.y):
+		for x in int(region.size.x):
+			if img.get_pixel(int(region.position.x) + x, int(region.position.y) + y).a > 0.5:
+				var d := Vector2(x, y).distance_squared_to(c)
+				if d < bd:
+					bd = d
+					best = Vector2(x, y)
+	return node.position + node.offset + best + Vector2(0.5, 0.5)

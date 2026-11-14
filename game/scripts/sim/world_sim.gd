@@ -28,6 +28,13 @@ var player_moving := false
 var player_running := false
 var player_anim_time := 0.0
 
+# interaction / items (Slice 002)
+const PLAYER_ID := "player"
+var items := ItemStore.new()
+var entities: Dictionary = {}               # entity id -> Interactable
+var interaction: InteractionSystem
+var interactable_defs: Dictionary
+
 # sheep
 var sheep: Array = []
 var sheep_pen := Rect2()
@@ -55,6 +62,7 @@ func load_map(path: String) -> void:
 			elif shape.has("rect"):
 				var r: Array = shape["rect"]
 				obstacles.append({"rect": Rect2(pos.x + r[0], pos.y + r[1], r[2] - r[0], r[3] - r[1])})
+	_load_interactables()
 	var ps: Array = map_data["player_start"]
 	player_pos = Vector2(ps[0], ps[1])
 	player_facing = 0
@@ -64,6 +72,34 @@ func load_map(path: String) -> void:
 	for s in map_data["sheep"]:
 		sheep.append({"pos": Vector2(s["x"], s["y"]), "facing": _rng.randi_range(0, 7),
 			"state": "graze", "timer": _rng.randf_range(1.0, 4.0), "target": Vector2.ZERO, "t": 0.0})
+
+
+func _load_interactables() -> void:
+	items.load_definitions("res://data/items.json")
+	interactable_defs = JSON.parse_string(FileAccess.get_file_as_string("res://data/interactables.json"))
+	items.add_container(ContainerComponent.new("%s.backpack" % PLAYER_ID, "Backpack", PLAYER_ID, 15, 5))
+	items.add_equipment(EquipmentComponent.new(PLAYER_ID))
+	for e in map_data.get("entities", []):
+		var ent := Interactable.new()
+		ent.id = e["id"]
+		ent.def_id = e["def"]
+		ent.def = interactable_defs[ent.def_id]
+		ent.kind = ent.def["kind"]
+		ent.pos = Vector2(e["x"], e["y"])
+		if ent.kind == "chest":
+			ent.container_id = ent.id + ".contents"
+			items.add_container(ContainerComponent.new(ent.container_id, ent.display_name(), ent.id,
+				int(ent.def.get("capacity", 8)), int(ent.def.get("columns", 4))))
+			for c in e.get("contents", []):
+				items.spawn(c[0], int(c[1]), ItemLocation.container(ent.container_id))
+		entities[ent.id] = ent
+	for g in map_data.get("ground_items", []):
+		items.spawn(g["def"], int(g.get("qty", 1)), ItemLocation.world(Vector2(g["x"], g["y"])))
+	interaction = InteractionSystem.new(self)
+
+
+func actor_pos(actor: String) -> Vector2:
+	return player_pos if actor == PLAYER_ID else Vector2.INF
 
 
 func corner(i: int, j: int) -> int:
@@ -85,7 +121,7 @@ func water_at(p: Vector2) -> float:
 	return lerpf(lerpf(w00, w10, fx), lerpf(w01, w11, fx), fy)
 
 
-func is_blocked(p: Vector2, radius: float) -> bool:
+func is_blocked(p: Vector2, radius: float, _include_actors := true) -> bool:
 	if p.x < radius or p.y < radius or p.x > size.x - radius or p.y > size.y - radius:
 		return true
 	if water_at(p) > 0.45:
@@ -99,6 +135,11 @@ func is_blocked(p: Vector2, radius: float) -> bool:
 			var r: Rect2 = o["rect"]
 			var q := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
 			if p.distance_squared_to(q) < radius * radius:
+				return true
+	for id in entities:
+		for r in (entities[id] as Interactable).collision_rects():
+			var q2 := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
+			if p.distance_squared_to(q2) < radius * radius:
 				return true
 	return false
 

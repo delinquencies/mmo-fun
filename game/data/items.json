@@ -1,0 +1,36 @@
+{
+ "iron_sword": {
+  "name": "Iron Sword",
+  "description": "A plain arming sword of forged iron. Honest steel, no enchantment.",
+  "stackable": false,
+  "equip_slot": "main_hand",
+  "paperdoll_layer": "iron_sword",
+  "icon": "iron_sword",
+  "world_sprite": "item_iron_sword",
+  "sounds": {"pickup": "item_pickup", "drop": "item_place", "equip": "equip", "unequip": "unequip"}
+ },
+ "gold_coins": {
+  "name": "Gold Coins",
+  "description": "Stamped gold pieces, worn smooth by many purses.",
+  "stackable": true,
+  "max_stack": 1000,
+  "icon": "gold_coins",
+  "world_sprite": "item_gold_coins",
+  "sounds": {"pickup": "coins", "drop": "coins"}
+ },
+ "red_apple": {
+  "name": "Red Apple",
+  "description": "A crisp apple from the homestead orchard.",
+  "stackable": true,
+  "max_stack": 20,
+  "icon": "red_apple",
+  "world_sprite": "item_red_apple"
+ },
+ "healing_potion": {
+  "name": "Healing Potion",
+  "description": "A stoppered flask of red tincture. Its use is not yet known.",
+  "stackable": false,
+  "icon": "healing_potion",
+  "world_sprite": "item_healing_potion"
+ }
+}
