@@ -1,0 +1,270 @@
+{
+ "tree_oak_a": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.22
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "tree_oak_b": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.2
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "tree_oak_c": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.24
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "tree_young": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.14
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "bush_green": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.3
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "bush_berry": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.3
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "bush_blossom": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.3
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "rock_large": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.45
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "rock_medium": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.3
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "rock_small": {
+  "collision": [],
+  "sort": "point"
+ },
+ "stump": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.22
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "flowers_yellow": {
+  "collision": [],
+  "sort": "point"
+ },
+ "flowers_white": {
+  "collision": [],
+  "sort": "point"
+ },
+ "flowers_purple": {
+  "collision": [],
+  "sort": "point"
+ },
+ "flowers_pink": {
+  "collision": [],
+  "sort": "point"
+ },
+ "grass_tuft_a": {
+  "collision": [],
+  "sort": "point"
+ },
+ "grass_tuft_b": {
+  "collision": [],
+  "sort": "point"
+ },
+ "fence_x": {
+  "collision": [
+   {
+    "rect": [
+     -0.5,
+     -0.08,
+     0.5,
+     0.08
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "fence_y": {
+  "collision": [
+   {
+    "rect": [
+     -0.08,
+     -0.5,
+     0.08,
+     0.5
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "barrel": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.3
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "crate": {
+  "collision": [
+   {
+    "rect": [
+     -0.32,
+     -0.32,
+     0.32,
+     0.32
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "signpost": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.1
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "lamppost": {
+  "collision": [
+   {
+    "circle": [
+     0,
+     0,
+     0.14
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "log_pile": {
+  "collision": [
+   {
+    "rect": [
+     -0.45,
+     -0.38,
+     0.45,
+     0.38
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "trough": {
+  "collision": [
+   {
+    "rect": [
+     -0.52,
+     -0.22,
+     0.52,
+     0.22
+    ]
+   }
+  ],
+  "sort": "point"
+ },
+ "cottage": {
+  "collision": [
+   {
+    "rect": [
+     0,
+     0,
+     3.0,
+     4.5
+    ]
+   }
+  ],
+  "sort": "footprint",
+  "footprint": [
+   0,
+   0,
+   3.0,
+   4.5
+  ]
+ }
+}

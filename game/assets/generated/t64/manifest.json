@@ -1,0 +1,1981 @@
+{
+ "tile_w": 64,
+ "tile_h": 32,
+ "units": "1 world unit = 1 tile edge",
+ "terrain": {
+  "period": 4,
+  "grass": "terrain_grass.png",
+  "dirt": "terrain_dirt.png",
+  "water": "terrain_water.png"
+ },
+ "sprites": {
+  "tree_oak_a": {
+   "file": "tree_oak_a.png",
+   "shadow": "tree_oak_a_shadow.png",
+   "size": [
+    268,
+    262
+   ],
+   "pivot": [
+    110,
+    199
+   ],
+   "anchors": {}
+  },
+  "tree_oak_b": {
+   "file": "tree_oak_b.png",
+   "shadow": "tree_oak_b_shadow.png",
+   "size": [
+    255,
+    249
+   ],
+   "pivot": [
+    102,
+    190
+   ],
+   "anchors": {}
+  },
+  "tree_oak_c": {
+   "file": "tree_oak_c.png",
+   "shadow": "tree_oak_c_shadow.png",
+   "size": [
+    312,
+    300
+   ],
+   "pivot": [
+    127,
+    227
+   ],
+   "anchors": {}
+  },
+  "tree_young": {
+   "file": "tree_young.png",
+   "shadow": "tree_young_shadow.png",
+   "size": [
+    178,
+    182
+   ],
+   "pivot": [
+    73,
+    137
+   ],
+   "anchors": {}
+  },
+  "bush_green": {
+   "file": "bush_green.png",
+   "shadow": "bush_green_shadow.png",
+   "size": [
+    74,
+    63
+   ],
+   "pivot": [
+    34,
+    44
+   ],
+   "anchors": {}
+  },
+  "bush_berry": {
+   "file": "bush_berry.png",
+   "shadow": "bush_berry_shadow.png",
+   "size": [
+    79,
+    66
+   ],
+   "pivot": [
+    34,
+    46
+   ],
+   "anchors": {}
+  },
+  "bush_blossom": {
+   "file": "bush_blossom.png",
+   "shadow": "bush_blossom_shadow.png",
+   "size": [
+    86,
+    71
+   ],
+   "pivot": [
+    35,
+    49
+   ],
+   "anchors": {}
+  },
+  "rock_large": {
+   "file": "rock_large.png",
+   "shadow": "rock_large_shadow.png",
+   "size": [
+    95,
+    75
+   ],
+   "pivot": [
+    43,
+    41
+   ],
+   "anchors": {}
+  },
+  "rock_medium": {
+   "file": "rock_medium.png",
+   "shadow": "rock_medium_shadow.png",
+   "size": [
+    69,
+    60
+   ],
+   "pivot": [
+    33,
+    35
+   ],
+   "anchors": {}
+  },
+  "rock_small": {
+   "file": "rock_small.png",
+   "shadow": "rock_small_shadow.png",
+   "size": [
+    45,
+    42
+   ],
+   "pivot": [
+    22,
+    24
+   ],
+   "anchors": {}
+  },
+  "stump": {
+   "file": "stump.png",
+   "shadow": "stump_shadow.png",
+   "size": [
+    60,
+    48
+   ],
+   "pivot": [
+    28,
+    29
+   ],
+   "anchors": {}
+  },
+  "flowers_yellow": {
+   "file": "flowers_yellow.png",
+   "shadow": "flowers_yellow_shadow.png",
+   "size": [
+    49,
+    41
+   ],
+   "pivot": [
+    23,
+    24
+   ],
+   "anchors": {}
+  },
+  "flowers_white": {
+   "file": "flowers_white.png",
+   "shadow": "flowers_white_shadow.png",
+   "size": [
+    49,
+    40
+   ],
+   "pivot": [
+    23,
+    23
+   ],
+   "anchors": {}
+  },
+  "flowers_purple": {
+   "file": "flowers_purple.png",
+   "shadow": "flowers_purple_shadow.png",
+   "size": [
+    49,
+    40
+   ],
+   "pivot": [
+    23,
+    23
+   ],
+   "anchors": {}
+  },
+  "flowers_pink": {
+   "file": "flowers_pink.png",
+   "shadow": "flowers_pink_shadow.png",
+   "size": [
+    49,
+    41
+   ],
+   "pivot": [
+    23,
+    24
+   ],
+   "anchors": {}
+  },
+  "grass_tuft_a": {
+   "file": "grass_tuft_a.png",
+   "shadow": "grass_tuft_a_shadow.png",
+   "size": [
+    31,
+    28
+   ],
+   "pivot": [
+    13,
+    19
+   ],
+   "anchors": {}
+  },
+  "grass_tuft_b": {
+   "file": "grass_tuft_b.png",
+   "shadow": "grass_tuft_b_shadow.png",
+   "size": [
+    31,
+    31
+   ],
+   "pivot": [
+    12,
+    22
+   ],
+   "anchors": {}
+  },
+  "fence_x": {
+   "file": "fence_x.png",
+   "shadow": "fence_x_shadow.png",
+   "size": [
+    66,
+    70
+   ],
+   "pivot": [
+    25,
+    55
+   ],
+   "anchors": {}
+  },
+  "fence_y": {
+   "file": "fence_y.png",
+   "shadow": "fence_y_shadow.png",
+   "size": [
+    66,
+    70
+   ],
+   "pivot": [
+    25,
+    55
+   ],
+   "anchors": {}
+  },
+  "barrel": {
+   "file": "barrel.png",
+   "shadow": "barrel_shadow.png",
+   "size": [
+    62,
+    59
+   ],
+   "pivot": [
+    25,
+    45
+   ],
+   "anchors": {}
+  },
+  "crate": {
+   "file": "crate.png",
+   "shadow": "crate_shadow.png",
+   "size": [
+    60,
+    54
+   ],
+   "pivot": [
+    25,
+    39
+   ],
+   "anchors": {}
+  },
+  "signpost": {
+   "file": "signpost.png",
+   "shadow": "signpost_shadow.png",
+   "size": [
+    79,
+    93
+   ],
+   "pivot": [
+    28,
+    71
+   ],
+   "anchors": {}
+  },
+  "lamppost": {
+   "file": "lamppost.png",
+   "shadow": "lamppost_shadow.png",
+   "size": [
+    62,
+    102
+   ],
+   "pivot": [
+    14,
+    93
+   ],
+   "anchors": {
+    "flame": [
+     0.0,
+     -79.17
+    ]
+   }
+  },
+  "log_pile": {
+   "file": "log_pile.png",
+   "shadow": "log_pile_shadow.png",
+   "size": [
+    72,
+    55
+   ],
+   "pivot": [
+    32,
+    37
+   ],
+   "anchors": {}
+  },
+  "trough": {
+   "file": "trough.png",
+   "shadow": "trough_shadow.png",
+   "size": [
+    60,
+    46
+   ],
+   "pivot": [
+    27,
+    30
+   ],
+   "anchors": {}
+  },
+  "cottage": {
+   "file": "cottage.png",
+   "shadow": "cottage_shadow.png",
+   "size": [
+    388,
+    351
+   ],
+   "pivot": [
+    176,
+    210
+   ],
+   "anchors": {
+    "chimney_top": [
+     36.8,
+     -162.83
+    ],
+    "door": [
+     33.6,
+     98.4
+    ]
+   }
+  }
+ },
+ "animations": {
+  "player": {
+   "frame_size": [
+    161,
+    146
+   ],
+   "pivot": [
+    64,
+    112
+   ],
+   "directions": [
+    "S",
+    "SW",
+    "W",
+    "NW",
+    "N",
+    "NE",
+    "E",
+    "SE"
+   ],
+   "anims": {
+    "idle": {
+     "file": "player_idle.png",
+     "shadow": "player_idle_shadow.png",
+     "frames": 4,
+     "fps": 4,
+     "anchors": [
+      [
+       {
+        "blade_base": [
+         12.81,
+         -26.85
+        ],
+        "blade_tip": [
+         20.47,
+         5.53
+        ],
+        "head": [
+         0.0,
+         -68.46
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         12.81,
+         -27.16
+        ],
+        "blade_tip": [
+         20.47,
+         5.22
+        ],
+        "head": [
+         0.0,
+         -68.78
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         12.81,
+         -26.85
+        ],
+        "blade_tip": [
+         20.47,
+         5.53
+        ],
+        "head": [
+         0.0,
+         -68.46
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         12.81,
+         -26.53
+        ],
+        "blade_tip": [
+         20.47,
+         5.84
+        ],
+        "head": [
+         0.0,
+         -68.15
+        ],
+        "blade_visible": 1.0
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         4.45,
+         -23.27
+        ],
+        "blade_tip": [
+         -8.8,
+         7.95
+        ],
+        "head": [
+         -1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         4.45,
+         -23.58
+        ],
+        "blade_tip": [
+         -8.8,
+         7.63
+        ],
+        "head": [
+         -1.28,
+         -69.04
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         4.45,
+         -23.27
+        ],
+        "blade_tip": [
+         -8.8,
+         7.95
+        ],
+        "head": [
+         -1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         4.45,
+         -22.96
+        ],
+        "blade_tip": [
+         -8.8,
+         8.26
+        ],
+        "head": [
+         -1.28,
+         -68.42
+        ],
+        "blade_visible": 1.0
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         -6.52,
+         -23.7
+        ],
+        "blade_tip": [
+         -32.92,
+         -0.69
+        ],
+        "head": [
+         -1.81,
+         -69.37
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         -6.52,
+         -24.01
+        ],
+        "blade_tip": [
+         -32.92,
+         -1.01
+        ],
+        "head": [
+         -1.81,
+         -69.68
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         -6.52,
+         -23.7
+        ],
+        "blade_tip": [
+         -32.92,
+         -0.69
+        ],
+        "head": [
+         -1.81,
+         -69.37
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         -6.52,
+         -23.39
+        ],
+        "blade_tip": [
+         -32.92,
+         -0.38
+        ],
+        "head": [
+         -1.81,
+         -69.06
+        ],
+        "blade_visible": 0.89
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         -13.67,
+         -27.88
+        ],
+        "blade_tip": [
+         -37.75,
+         -15.33
+        ],
+        "head": [
+         -1.28,
+         -70.01
+        ],
+        "blade_visible": 0.89
+       },
+       {
+        "blade_base": [
+         -13.67,
+         -28.19
+        ],
+        "blade_tip": [
+         -37.75,
+         -15.64
+        ],
+        "head": [
+         -1.28,
+         -70.32
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         -13.67,
+         -27.88
+        ],
+        "blade_tip": [
+         -37.75,
+         -15.33
+        ],
+        "head": [
+         -1.28,
+         -70.01
+        ],
+        "blade_visible": 0.89
+       },
+       {
+        "blade_base": [
+         -13.67,
+         -27.57
+        ],
+        "blade_tip": [
+         -37.75,
+         -15.02
+        ],
+        "head": [
+         -1.28,
+         -69.7
+        ],
+        "blade_visible": 0.56
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         -12.81,
+         -33.36
+        ],
+        "blade_tip": [
+         -20.47,
+         -27.39
+        ],
+        "head": [
+         -0.0,
+         -70.27
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -12.81,
+         -33.68
+        ],
+        "blade_tip": [
+         -20.47,
+         -27.7
+        ],
+        "head": [
+         -0.0,
+         -70.59
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -12.81,
+         -33.36
+        ],
+        "blade_tip": [
+         -20.47,
+         -27.39
+        ],
+        "head": [
+         -0.0,
+         -70.27
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -12.81,
+         -33.05
+        ],
+        "blade_tip": [
+         -20.47,
+         -27.07
+        ],
+        "head": [
+         -0.0,
+         -69.96
+        ],
+        "blade_visible": 0.0
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         -4.45,
+         -36.94
+        ],
+        "blade_tip": [
+         8.8,
+         -29.81
+        ],
+        "head": [
+         1.28,
+         -70.01
+        ],
+        "blade_visible": 0.0
+       },
+       {
+        "blade_base": [
+         -4.45,
+         -37.25
+        ],
+        "blade_tip": [
+         8.8,
+         -30.12
+        ],
+        "head": [
+         1.28,
+         -70.32
+        ],
+        "blade_visible": 0.0
+       },
+       {
+        "blade_base": [
+         -4.45,
+         -36.94
+        ],
+        "blade_tip": [
+         8.8,
+         -29.81
+        ],
+        "head": [
+         1.28,
+         -70.01
+        ],
+        "blade_visible": 0.0
+       },
+       {
+        "blade_base": [
+         -4.45,
+         -36.62
+        ],
+        "blade_tip": [
+         8.8,
+         -29.49
+        ],
+        "head": [
+         1.28,
+         -69.7
+        ],
+        "blade_visible": 0.0
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         6.52,
+         -36.51
+        ],
+        "blade_tip": [
+         32.92,
+         -21.17
+        ],
+        "head": [
+         1.81,
+         -69.37
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         6.52,
+         -36.82
+        ],
+        "blade_tip": [
+         32.92,
+         -21.48
+        ],
+        "head": [
+         1.81,
+         -69.68
+        ],
+        "blade_visible": 0.67
+       },
+       {
+        "blade_base": [
+         6.52,
+         -36.51
+        ],
+        "blade_tip": [
+         32.92,
+         -21.17
+        ],
+        "head": [
+         1.81,
+         -69.37
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         6.52,
+         -36.19
+        ],
+        "blade_tip": [
+         32.92,
+         -20.85
+        ],
+        "head": [
+         1.81,
+         -69.06
+        ],
+        "blade_visible": 0.78
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         13.67,
+         -32.33
+        ],
+        "blade_tip": [
+         37.75,
+         -6.53
+        ],
+        "head": [
+         1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         13.67,
+         -32.64
+        ],
+        "blade_tip": [
+         37.75,
+         -6.84
+        ],
+        "head": [
+         1.28,
+         -69.04
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         13.67,
+         -32.33
+        ],
+        "blade_tip": [
+         37.75,
+         -6.53
+        ],
+        "head": [
+         1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         13.67,
+         -32.01
+        ],
+        "blade_tip": [
+         37.75,
+         -6.21
+        ],
+        "head": [
+         1.28,
+         -68.42
+        ],
+        "blade_visible": 1.0
+       }
+      ]
+     ]
+    },
+    "walk": {
+     "file": "player_walk.png",
+     "shadow": "player_walk_shadow.png",
+     "frames": 8,
+     "fps": 10,
+     "anchors": [
+      [
+       {
+        "blade_base": [
+         12.81,
+         -25.67
+        ],
+        "blade_tip": [
+         20.47,
+         6.71
+        ],
+        "head": [
+         0.0,
+         -67.29
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         12.81,
+         -25.97
+        ],
+        "blade_tip": [
+         20.47,
+         6.41
+        ],
+        "head": [
+         0.0,
+         -68.46
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         12.81,
+         -26.89
+        ],
+        "blade_tip": [
+         20.47,
+         5.49
+        ],
+        "head": [
+         0.0,
+         -69.64
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         12.81,
+         -25.97
+        ],
+        "blade_tip": [
+         20.47,
+         6.41
+        ],
+        "head": [
+         0.0,
+         -68.46
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         12.81,
+         -25.67
+        ],
+        "blade_tip": [
+         20.47,
+         6.71
+        ],
+        "head": [
+         0.0,
+         -67.29
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         12.81,
+         -28.09
+        ],
+        "blade_tip": [
+         20.47,
+         4.29
+        ],
+        "head": [
+         0.0,
+         -68.46
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         12.81,
+         -29.88
+        ],
+        "blade_tip": [
+         20.47,
+         2.49
+        ],
+        "head": [
+         0.0,
+         -69.64
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         12.81,
+         -28.09
+        ],
+        "blade_tip": [
+         20.47,
+         4.29
+        ],
+        "head": [
+         0.0,
+         -68.46
+        ],
+        "blade_visible": 1.0
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         4.45,
+         -22.1
+        ],
+        "blade_tip": [
+         -8.8,
+         9.12
+        ],
+        "head": [
+         -1.28,
+         -67.55
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         2.34,
+         -22.83
+        ],
+        "blade_tip": [
+         -10.91,
+         8.39
+        ],
+        "head": [
+         -1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         1.49,
+         -23.93
+        ],
+        "blade_tip": [
+         -11.76,
+         7.29
+        ],
+        "head": [
+         -1.28,
+         -69.91
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         2.34,
+         -22.83
+        ],
+        "blade_tip": [
+         -10.91,
+         8.39
+        ],
+        "head": [
+         -1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         4.45,
+         -22.1
+        ],
+        "blade_tip": [
+         -8.8,
+         9.12
+        ],
+        "head": [
+         -1.28,
+         -67.55
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         6.6,
+         -24.07
+        ],
+        "blade_tip": [
+         -6.65,
+         7.15
+        ],
+        "head": [
+         -1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         7.5,
+         -25.68
+        ],
+        "blade_tip": [
+         -5.75,
+         5.54
+        ],
+        "head": [
+         -1.28,
+         -69.91
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         6.6,
+         -24.07
+        ],
+        "blade_tip": [
+         -6.65,
+         7.15
+        ],
+        "head": [
+         -1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         -6.52,
+         -22.52
+        ],
+        "blade_tip": [
+         -32.92,
+         0.48
+        ],
+        "head": [
+         -1.81,
+         -68.19
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         -9.5,
+         -24.31
+        ],
+        "blade_tip": [
+         -35.9,
+         -1.3
+        ],
+        "head": [
+         -1.81,
+         -69.37
+        ],
+        "blade_visible": 0.89
+       },
+       {
+        "blade_base": [
+         -10.7,
+         -25.83
+        ],
+        "blade_tip": [
+         -37.1,
+         -2.83
+        ],
+        "head": [
+         -1.81,
+         -70.55
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         -9.5,
+         -24.31
+        ],
+        "blade_tip": [
+         -35.9,
+         -1.3
+        ],
+        "head": [
+         -1.81,
+         -69.37
+        ],
+        "blade_visible": 0.89
+       },
+       {
+        "blade_base": [
+         -6.52,
+         -22.52
+        ],
+        "blade_tip": [
+         -32.92,
+         0.48
+        ],
+        "head": [
+         -1.81,
+         -68.19
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         -3.47,
+         -23.42
+        ],
+        "blade_tip": [
+         -29.87,
+         -0.41
+        ],
+        "head": [
+         -1.81,
+         -69.37
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         -2.21,
+         -24.58
+        ],
+        "blade_tip": [
+         -28.61,
+         -1.57
+        ],
+        "head": [
+         -1.81,
+         -70.55
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         -3.47,
+         -23.42
+        ],
+        "blade_tip": [
+         -29.87,
+         -0.41
+        ],
+        "head": [
+         -1.81,
+         -69.37
+        ],
+        "blade_visible": 1.0
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         -13.67,
+         -26.7
+        ],
+        "blade_tip": [
+         -37.75,
+         -14.15
+        ],
+        "head": [
+         -1.28,
+         -68.83
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         -15.77,
+         -29.54
+        ],
+        "blade_tip": [
+         -39.86,
+         -16.99
+        ],
+        "head": [
+         -1.28,
+         -70.01
+        ],
+        "blade_visible": 0.44
+       },
+       {
+        "blade_base": [
+         -16.62,
+         -31.49
+        ],
+        "blade_tip": [
+         -40.71,
+         -18.94
+        ],
+        "head": [
+         -1.28,
+         -71.19
+        ],
+        "blade_visible": 0.56
+       },
+       {
+        "blade_base": [
+         -15.77,
+         -29.54
+        ],
+        "blade_tip": [
+         -39.86,
+         -16.99
+        ],
+        "head": [
+         -1.28,
+         -70.01
+        ],
+        "blade_visible": 0.44
+       },
+       {
+        "blade_base": [
+         -13.67,
+         -26.7
+        ],
+        "blade_tip": [
+         -37.75,
+         -14.15
+        ],
+        "head": [
+         -1.28,
+         -68.83
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         -11.51,
+         -26.53
+        ],
+        "blade_tip": [
+         -35.6,
+         -13.98
+        ],
+        "head": [
+         -1.28,
+         -70.01
+        ],
+        "blade_visible": 0.56
+       },
+       {
+        "blade_base": [
+         -10.62,
+         -27.24
+        ],
+        "blade_tip": [
+         -34.7,
+         -14.69
+        ],
+        "head": [
+         -1.28,
+         -71.19
+        ],
+        "blade_visible": 0.67
+       },
+       {
+        "blade_base": [
+         -11.51,
+         -26.53
+        ],
+        "blade_tip": [
+         -35.6,
+         -13.98
+        ],
+        "head": [
+         -1.28,
+         -70.01
+        ],
+        "blade_visible": 0.56
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         -12.81,
+         -32.19
+        ],
+        "blade_tip": [
+         -20.47,
+         -26.21
+        ],
+        "head": [
+         -0.0,
+         -69.1
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -12.81,
+         -35.46
+        ],
+        "blade_tip": [
+         -20.47,
+         -29.49
+        ],
+        "head": [
+         -0.0,
+         -70.27
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -12.81,
+         -37.59
+        ],
+        "blade_tip": [
+         -20.47,
+         -31.61
+        ],
+        "head": [
+         -0.0,
+         -71.45
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -12.81,
+         -35.46
+        ],
+        "blade_tip": [
+         -20.47,
+         -29.49
+        ],
+        "head": [
+         -0.0,
+         -70.27
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -12.81,
+         -32.19
+        ],
+        "blade_tip": [
+         -20.47,
+         -26.21
+        ],
+        "head": [
+         -0.0,
+         -69.1
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -12.81,
+         -31.56
+        ],
+        "blade_tip": [
+         -20.47,
+         -25.59
+        ],
+        "head": [
+         -0.0,
+         -70.27
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -12.81,
+         -32.09
+        ],
+        "blade_tip": [
+         -20.47,
+         -26.11
+        ],
+        "head": [
+         -0.0,
+         -71.45
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -12.81,
+         -31.56
+        ],
+        "blade_tip": [
+         -20.47,
+         -25.59
+        ],
+        "head": [
+         -0.0,
+         -70.27
+        ],
+        "blade_visible": 0.11
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         -4.45,
+         -35.76
+        ],
+        "blade_tip": [
+         8.8,
+         -28.63
+        ],
+        "head": [
+         1.28,
+         -68.83
+        ],
+        "blade_visible": 0.0
+       },
+       {
+        "blade_base": [
+         -2.34,
+         -38.6
+        ],
+        "blade_tip": [
+         10.91,
+         -31.47
+        ],
+        "head": [
+         1.28,
+         -70.01
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -1.49,
+         -40.55
+        ],
+        "blade_tip": [
+         11.76,
+         -33.42
+        ],
+        "head": [
+         1.28,
+         -71.19
+        ],
+        "blade_visible": 0.22
+       },
+       {
+        "blade_base": [
+         -2.34,
+         -38.6
+        ],
+        "blade_tip": [
+         10.91,
+         -31.47
+        ],
+        "head": [
+         1.28,
+         -70.01
+        ],
+        "blade_visible": 0.11
+       },
+       {
+        "blade_base": [
+         -4.45,
+         -35.76
+        ],
+        "blade_tip": [
+         8.8,
+         -28.63
+        ],
+        "head": [
+         1.28,
+         -68.83
+        ],
+        "blade_visible": 0.0
+       },
+       {
+        "blade_base": [
+         -6.6,
+         -35.58
+        ],
+        "blade_tip": [
+         6.65,
+         -28.45
+        ],
+        "head": [
+         1.28,
+         -70.01
+        ],
+        "blade_visible": 0.0
+       },
+       {
+        "blade_base": [
+         -7.5,
+         -36.29
+        ],
+        "blade_tip": [
+         5.75,
+         -29.16
+        ],
+        "head": [
+         1.28,
+         -71.19
+        ],
+        "blade_visible": 0.0
+       },
+       {
+        "blade_base": [
+         -6.6,
+         -35.58
+        ],
+        "blade_tip": [
+         6.65,
+         -28.45
+        ],
+        "head": [
+         1.28,
+         -70.01
+        ],
+        "blade_visible": 0.0
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         6.52,
+         -35.33
+        ],
+        "blade_tip": [
+         32.92,
+         -19.99
+        ],
+        "head": [
+         1.81,
+         -68.19
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         9.5,
+         -37.12
+        ],
+        "blade_tip": [
+         35.9,
+         -21.77
+        ],
+        "head": [
+         1.81,
+         -69.37
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         10.7,
+         -38.64
+        ],
+        "blade_tip": [
+         37.1,
+         -23.3
+        ],
+        "head": [
+         1.81,
+         -70.55
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         9.5,
+         -37.12
+        ],
+        "blade_tip": [
+         35.9,
+         -21.77
+        ],
+        "head": [
+         1.81,
+         -69.37
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         6.52,
+         -35.33
+        ],
+        "blade_tip": [
+         32.92,
+         -19.99
+        ],
+        "head": [
+         1.81,
+         -68.19
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         3.47,
+         -36.23
+        ],
+        "blade_tip": [
+         29.87,
+         -20.89
+        ],
+        "head": [
+         1.81,
+         -69.37
+        ],
+        "blade_visible": 0.78
+       },
+       {
+        "blade_base": [
+         2.21,
+         -37.39
+        ],
+        "blade_tip": [
+         28.61,
+         -22.05
+        ],
+        "head": [
+         1.81,
+         -70.55
+        ],
+        "blade_visible": 0.44
+       },
+       {
+        "blade_base": [
+         3.47,
+         -36.23
+        ],
+        "blade_tip": [
+         29.87,
+         -20.89
+        ],
+        "head": [
+         1.81,
+         -69.37
+        ],
+        "blade_visible": 0.78
+       }
+      ],
+      [
+       {
+        "blade_base": [
+         13.67,
+         -31.15
+        ],
+        "blade_tip": [
+         37.75,
+         -5.35
+        ],
+        "head": [
+         1.28,
+         -67.55
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         15.77,
+         -31.88
+        ],
+        "blade_tip": [
+         39.86,
+         -6.09
+        ],
+        "head": [
+         1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         16.62,
+         -32.98
+        ],
+        "blade_tip": [
+         40.71,
+         -7.18
+        ],
+        "head": [
+         1.28,
+         -69.91
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         15.77,
+         -31.88
+        ],
+        "blade_tip": [
+         39.86,
+         -6.09
+        ],
+        "head": [
+         1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         13.67,
+         -31.15
+        ],
+        "blade_tip": [
+         37.75,
+         -5.35
+        ],
+        "head": [
+         1.28,
+         -67.55
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         11.51,
+         -33.13
+        ],
+        "blade_tip": [
+         35.6,
+         -7.33
+        ],
+        "head": [
+         1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         10.62,
+         -34.74
+        ],
+        "blade_tip": [
+         34.7,
+         -8.94
+        ],
+        "head": [
+         1.28,
+         -69.91
+        ],
+        "blade_visible": 1.0
+       },
+       {
+        "blade_base": [
+         11.51,
+         -33.13
+        ],
+        "blade_tip": [
+         35.6,
+         -7.33
+        ],
+        "head": [
+         1.28,
+         -68.73
+        ],
+        "blade_visible": 1.0
+       }
+      ]
+     ]
+    }
+   },
+   "content_height_px": 72
+  },
+  "sheep": {
+   "frame_size": [
+    104,
+    82
+   ],
+   "pivot": [
+    45,
+    58
+   ],
+   "directions": [
+    "S",
+    "SW",
+    "W",
+    "NW",
+    "N",
+    "NE",
+    "E",
+    "SE"
+   ],
+   "anims": {
+    "stand": {
+     "file": "sheep_stand.png",
+     "shadow": "sheep_stand_shadow.png",
+     "frames": 2,
+     "fps": 2,
+     "anchors": [
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ]
+     ]
+    },
+    "graze": {
+     "file": "sheep_graze.png",
+     "shadow": "sheep_graze_shadow.png",
+     "frames": 2,
+     "fps": 1,
+     "anchors": [
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ],
+      [
+       {},
+       {}
+      ]
+     ]
+    }
+   },
+   "content_height_px": 34
+  }
+ }
+}

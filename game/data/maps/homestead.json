@@ -1,0 +1,1356 @@
+{
+ "name": "Homestead calibration map",
+ "size": [
+  40,
+  40
+ ],
+ "terrain_legend": {
+  "g": "grass",
+  "d": "dirt",
+  "w": "water"
+ },
+ "terrain_rows": [
+  "ggggggggggggggggggggggdddgggggggggwwwwwww",
+  "ggggggggggggggggggggggddggggggggggwwwwwww",
+  "ggggggggggggggggggggggddggggggggggwwwwwww",
+  "ggggggggggggggggggggggddggggggggggwwwwwww",
+  "ggggggggggggggggggggggdddgggggggggwwwwwww",
+  "ggggggggggggggggggggggdddgggggggggwwwwwww",
+  "ggggggggggggggggggggggdddgggggggggwwwwwww",
+  "ggggggggggggggggggggggddggggggggggwwwwwww",
+  "ggggggggggggggggggggggddggggggggggwwwwwww",
+  "gggggggggggggggdddddddddggggggggggwwwwwww",
+  "gggggggggggggggdddddddddggggggggggwwwwwww",
+  "gggggggggggggggggggggdddggggggggggwwwwwww",
+  "gggggggggggggggggggggdddggggggggggwwwwwww",
+  "gggggggggggggggggggggddddgggggggggwwwwwww",
+  "gggggggggggggggggggggdddddddgggggggwwwwww",
+  "gggggggggggggggggggggddgdddddddggggwwwwww",
+  "gggggggggggggggggggggddggddddddggggwwwwww",
+  "ggggggggggggggggggggdddgggggggggggwwwwwww",
+  "ggggggggggggggggggggdddgggggggggggwwwwwww",
+  "ggggggggggggggggggggddggggggggggggwwwwwww",
+  "ggggggggggggggggggggddgggggggggggwwwwwwww",
+  "gggggggggggggggggggdddgggggggggggwwwwwwww",
+  "gggggggggggggggggggdddggggggggggwwwwwwwww",
+  "gggggggggggggggggggdddggggggggggwwwwwwwww",
+  "gggggggggggggggggggdddgggggggggwwwwwwwwww",
+  "gggggggggggggggggggdddgggggggggwwwwwwwwww",
+  "gggggggggggggggggggdddgggggggggwwwwwwwwww",
+  "gggggggggggggggggggddggggggggggwwwwwwwwww",
+  "gggggggggggggggggggddggggggggggwwwwwwwwww",
+  "gggggggggggggggggggddgggggggggggwwwwwwwww",
+  "gggggggggggggggggggdddggggggggggwwwwwwwww",
+  "gggggggggggggggggggdddggggggggggwwwwwwwww",
+  "gggggggggggggggggggdddggggggggggwwwwwwwww",
+  "gggggggggggggggggggdddggggggggggwwwwwwwww",
+  "gggggggggggggggggggdddggggggggggwwwwwwwww",
+  "gggggggggggggggggggdddggggggggggwwwwwwwww",
+  "gggggggggggggggggggdddggggggggggwwwwwwwww",
+  "gggggggggggggggggggdddggggggggggwwwwwwwww",
+  "ggggggggggggggggggggddggggggggggwwwwwwwww",
+  "ggggggggggggggggggggddggggggggggwwwwwwwww",
+  "ggggggggggggggggggggddggggggggggwwwwwwwww"
+ ],
+ "props": [
+  {
+   "type": "cottage",
+   "x": 12.0,
+   "y": 7.0
+  },
+  {
+   "type": "barrel",
+   "x": 14.6,
+   "y": 12.35
+  },
+  {
+   "type": "crate",
+   "x": 13.5,
+   "y": 12.3
+  },
+  {
+   "type": "log_pile",
+   "x": 11.35,
+   "y": 9.0
+  },
+  {
+   "type": "lamppost",
+   "x": 16.6,
+   "y": 8.5
+  },
+  {
+   "type": "bush_blossom",
+   "x": 16.4,
+   "y": 6.6
+  },
+  {
+   "type": "signpost",
+   "x": 23.6,
+   "y": 11.2
+  },
+  {
+   "type": "trough",
+   "x": 10.8,
+   "y": 15.6
+  },
+  {
+   "type": "stump",
+   "x": 25.0,
+   "y": 19.0
+  },
+  {
+   "type": "lamppost",
+   "x": 28.6,
+   "y": 14.3
+  },
+  {
+   "type": "fence_x",
+   "x": 4.5,
+   "y": 11
+  },
+  {
+   "type": "fence_x",
+   "x": 4.5,
+   "y": 17
+  },
+  {
+   "type": "fence_x",
+   "x": 5.5,
+   "y": 11
+  },
+  {
+   "type": "fence_x",
+   "x": 5.5,
+   "y": 17
+  },
+  {
+   "type": "fence_x",
+   "x": 6.5,
+   "y": 11
+  },
+  {
+   "type": "fence_x",
+   "x": 6.5,
+   "y": 17
+  },
+  {
+   "type": "fence_x",
+   "x": 7.5,
+   "y": 11
+  },
+  {
+   "type": "fence_x",
+   "x": 7.5,
+   "y": 17
+  },
+  {
+   "type": "fence_x",
+   "x": 8.5,
+   "y": 11
+  },
+  {
+   "type": "fence_x",
+   "x": 8.5,
+   "y": 17
+  },
+  {
+   "type": "fence_x",
+   "x": 9.5,
+   "y": 11
+  },
+  {
+   "type": "fence_x",
+   "x": 9.5,
+   "y": 17
+  },
+  {
+   "type": "fence_y",
+   "x": 4,
+   "y": 11.5
+  },
+  {
+   "type": "fence_y",
+   "x": 10,
+   "y": 11.5
+  },
+  {
+   "type": "fence_y",
+   "x": 4,
+   "y": 12.5
+  },
+  {
+   "type": "fence_y",
+   "x": 10,
+   "y": 12.5
+  },
+  {
+   "type": "fence_y",
+   "x": 4,
+   "y": 14.5
+  },
+  {
+   "type": "fence_y",
+   "x": 10,
+   "y": 14.5
+  },
+  {
+   "type": "fence_y",
+   "x": 4,
+   "y": 15.5
+  },
+  {
+   "type": "fence_y",
+   "x": 10,
+   "y": 15.5
+  },
+  {
+   "type": "fence_y",
+   "x": 4,
+   "y": 16.5
+  },
+  {
+   "type": "fence_y",
+   "x": 10,
+   "y": 16.5
+  },
+  {
+   "type": "tree_oak_c",
+   "x": 3.0,
+   "y": 3.5
+  },
+  {
+   "type": "tree_oak_a",
+   "x": 6.5,
+   "y": 2.0
+  },
+  {
+   "type": "tree_oak_b",
+   "x": 1.5,
+   "y": 7.5
+  },
+  {
+   "type": "tree_oak_a",
+   "x": 9.5,
+   "y": 3.5
+  },
+  {
+   "type": "tree_young",
+   "x": 4.5,
+   "y": 6.5
+  },
+  {
+   "type": "tree_oak_b",
+   "x": 2.0,
+   "y": 12.0
+  },
+  {
+   "type": "tree_oak_c",
+   "x": 15.5,
+   "y": 2.5
+  },
+  {
+   "type": "tree_young",
+   "x": 12.0,
+   "y": 3.2
+  },
+  {
+   "type": "tree_oak_a",
+   "x": 19.5,
+   "y": 1.5
+  },
+  {
+   "type": "tree_oak_b",
+   "x": 18.6,
+   "y": 5.2
+  },
+  {
+   "type": "tree_oak_a",
+   "x": 26.0,
+   "y": 6.0
+  },
+  {
+   "type": "tree_young",
+   "x": 28.0,
+   "y": 3.0
+  },
+  {
+   "type": "tree_oak_c",
+   "x": 9.0,
+   "y": 21.0
+  },
+  {
+   "type": "tree_oak_a",
+   "x": 3.0,
+   "y": 22.0
+  },
+  {
+   "type": "tree_young",
+   "x": 13.0,
+   "y": 19.5
+  },
+  {
+   "type": "tree_oak_b",
+   "x": 26.5,
+   "y": 23.5
+  },
+  {
+   "type": "tree_young",
+   "x": 24.2,
+   "y": 27.5
+  },
+  {
+   "type": "tree_oak_a",
+   "x": 14.0,
+   "y": 27.0
+  },
+  {
+   "type": "tree_oak_c",
+   "x": 5.5,
+   "y": 29.0
+  },
+  {
+   "type": "tree_oak_b",
+   "x": 10.5,
+   "y": 33.0
+  },
+  {
+   "type": "tree_young",
+   "x": 27.0,
+   "y": 33.0
+  },
+  {
+   "type": "tree_oak_a",
+   "x": 2.0,
+   "y": 35.0
+  },
+  {
+   "type": "tree_oak_b",
+   "x": 16.0,
+   "y": 36.5
+  },
+  {
+   "type": "tree_oak_c",
+   "x": 29.0,
+   "y": 38.5
+  },
+  {
+   "type": "tree_young",
+   "x": 29.5,
+   "y": 9.5
+  },
+  {
+   "type": "bush_berry",
+   "x": 17.5,
+   "y": 13.5
+  },
+  {
+   "type": "bush_green",
+   "x": 11.0,
+   "y": 6.0
+  },
+  {
+   "type": "bush_green",
+   "x": 24.5,
+   "y": 9.0
+  },
+  {
+   "type": "bush_berry",
+   "x": 27.5,
+   "y": 18.5
+  },
+  {
+   "type": "bush_green",
+   "x": 7.0,
+   "y": 9.0
+  },
+  {
+   "type": "bush_blossom",
+   "x": 3.5,
+   "y": 17.0
+  },
+  {
+   "type": "bush_green",
+   "x": 15.0,
+   "y": 22.5
+  },
+  {
+   "type": "bush_berry",
+   "x": 8.0,
+   "y": 25.5
+  },
+  {
+   "type": "bush_blossom",
+   "x": 23.0,
+   "y": 31.0
+  },
+  {
+   "type": "bush_green",
+   "x": 12.0,
+   "y": 37.0
+  },
+  {
+   "type": "rock_medium",
+   "x": 33.007,
+   "y": 1.592
+  },
+  {
+   "type": "rock_large",
+   "x": 33.164,
+   "y": 4.549
+  },
+  {
+   "type": "rock_medium",
+   "x": 32.737,
+   "y": 7.056
+  },
+  {
+   "type": "rock_large",
+   "x": 32.875,
+   "y": 10.361
+  },
+  {
+   "type": "rock_large",
+   "x": 33.51,
+   "y": 14.24
+  },
+  {
+   "type": "rock_medium",
+   "x": 33.507,
+   "y": 16.946
+  },
+  {
+   "type": "rock_large",
+   "x": 32.728,
+   "y": 19.866
+  },
+  {
+   "type": "rock_medium",
+   "x": 30.959,
+   "y": 22.07
+  },
+  {
+   "type": "rock_medium",
+   "x": 30.244,
+   "y": 25.629
+  },
+  {
+   "type": "rock_medium",
+   "x": 30.444,
+   "y": 28.84
+  },
+  {
+   "type": "rock_large",
+   "x": 31.318,
+   "y": 31.872
+  },
+  {
+   "type": "rock_medium",
+   "x": 31.48,
+   "y": 34.146
+  },
+  {
+   "type": "rock_large",
+   "x": 31.231,
+   "y": 37.929
+  },
+  {
+   "type": "rock_large",
+   "x": 18.0,
+   "y": 17.0
+  },
+  {
+   "type": "rock_medium",
+   "x": 7.5,
+   "y": 31.5
+  },
+  {
+   "type": "rock_small",
+   "x": 25.8,
+   "y": 12.5
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 30.812,
+   "y": 18.658
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 19.81,
+   "y": 13.896
+  },
+  {
+   "type": "flowers_white",
+   "x": 11.73,
+   "y": 38.727
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 20.465,
+   "y": 6.934
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 6.427,
+   "y": 19.57
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 32.416,
+   "y": 13.765
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 23.68,
+   "y": 23.116
+  },
+  {
+   "type": "flowers_white",
+   "x": 11.028,
+   "y": 27.685
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 2.866,
+   "y": 27.858
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 26.577,
+   "y": 1.38
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 14.363,
+   "y": 24.326
+  },
+  {
+   "type": "flowers_purple",
+   "x": 2.799,
+   "y": 30.461
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 6.988,
+   "y": 16.164
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 16.697,
+   "y": 14.492
+  },
+  {
+   "type": "flowers_purple",
+   "x": 9.6,
+   "y": 19.414
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 10.747,
+   "y": 0.66
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 12.926,
+   "y": 5.394
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 15.871,
+   "y": 19.279
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 8.642,
+   "y": 6.83
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 22.605,
+   "y": 21.428
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 8.61,
+   "y": 15.173
+  },
+  {
+   "type": "flowers_purple",
+   "x": 19.235,
+   "y": 12.662
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 6.217,
+   "y": 21.684
+  },
+  {
+   "type": "flowers_white",
+   "x": 30.068,
+   "y": 12.125
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 27.652,
+   "y": 10.683
+  },
+  {
+   "type": "flowers_pink",
+   "x": 24.416,
+   "y": 31.248
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 1.63,
+   "y": 1.59
+  },
+  {
+   "type": "flowers_white",
+   "x": 14.131,
+   "y": 38.506
+  },
+  {
+   "type": "flowers_pink",
+   "x": 9.098,
+   "y": 9.347
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 0.574,
+   "y": 35.959
+  },
+  {
+   "type": "flowers_white",
+   "x": 31.686,
+   "y": 3.806
+  },
+  {
+   "type": "flowers_purple",
+   "x": 29.755,
+   "y": 19.143
+  },
+  {
+   "type": "flowers_white",
+   "x": 17.423,
+   "y": 25.298
+  },
+  {
+   "type": "flowers_white",
+   "x": 15.938,
+   "y": 16.154
+  },
+  {
+   "type": "flowers_purple",
+   "x": 28.767,
+   "y": 7.13
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 1.574,
+   "y": 23.542
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 31.954,
+   "y": 6.201
+  },
+  {
+   "type": "flowers_white",
+   "x": 1.055,
+   "y": 38.365
+  },
+  {
+   "type": "flowers_pink",
+   "x": 17.419,
+   "y": 34.498
+  },
+  {
+   "type": "flowers_pink",
+   "x": 1.592,
+   "y": 8.798
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 30.284,
+   "y": 13.214
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 29.357,
+   "y": 35.51
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 5.6,
+   "y": 6.422
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 30.783,
+   "y": 34.946
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 30.618,
+   "y": 20.301
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 30.14,
+   "y": 36.087
+  },
+  {
+   "type": "flowers_pink",
+   "x": 13.199,
+   "y": 38.461
+  },
+  {
+   "type": "flowers_pink",
+   "x": 10.624,
+   "y": 22.321
+  },
+  {
+   "type": "flowers_white",
+   "x": 3.329,
+   "y": 9.885
+  },
+  {
+   "type": "flowers_white",
+   "x": 8.795,
+   "y": 12.308
+  },
+  {
+   "type": "flowers_purple",
+   "x": 28.429,
+   "y": 26.25
+  },
+  {
+   "type": "flowers_purple",
+   "x": 4.171,
+   "y": 35.012
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 8.134,
+   "y": 12.922
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 1.26,
+   "y": 22.108
+  },
+  {
+   "type": "flowers_purple",
+   "x": 11.105,
+   "y": 35.83
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 16.968,
+   "y": 36.045
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 16.332,
+   "y": 21.427
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 27.816,
+   "y": 3.989
+  },
+  {
+   "type": "flowers_white",
+   "x": 31.684,
+   "y": 7.65
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 0.95,
+   "y": 39.278
+  },
+  {
+   "type": "flowers_pink",
+   "x": 5.54,
+   "y": 21.05
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 10.714,
+   "y": 7.565
+  },
+  {
+   "type": "flowers_pink",
+   "x": 25.018,
+   "y": 21.212
+  },
+  {
+   "type": "flowers_purple",
+   "x": 11.808,
+   "y": 20.003
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 11.05,
+   "y": 31.843
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 17.935,
+   "y": 26.174
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 26.104,
+   "y": 21.79
+  },
+  {
+   "type": "flowers_purple",
+   "x": 8.246,
+   "y": 34.895
+  },
+  {
+   "type": "flowers_white",
+   "x": 2.621,
+   "y": 5.563
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 24.892,
+   "y": 34.814
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 6.867,
+   "y": 3.795
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 11.495,
+   "y": 9.946
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 14.702,
+   "y": 13.328
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 10.033,
+   "y": 38.161
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 13.578,
+   "y": 3.772
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 20.185,
+   "y": 0.693
+  },
+  {
+   "type": "flowers_white",
+   "x": 12.186,
+   "y": 25.057
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 28.424,
+   "y": 34.785
+  },
+  {
+   "type": "flowers_purple",
+   "x": 19.773,
+   "y": 11.583
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 2.208,
+   "y": 33.076
+  },
+  {
+   "type": "flowers_purple",
+   "x": 29.12,
+   "y": 32.177
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 22.671,
+   "y": 32.203
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 27.54,
+   "y": 9.468
+  },
+  {
+   "type": "flowers_white",
+   "x": 2.133,
+   "y": 25.348
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 15.188,
+   "y": 18.104
+  },
+  {
+   "type": "flowers_pink",
+   "x": 24.983,
+   "y": 24.923
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 26.213,
+   "y": 3.076
+  },
+  {
+   "type": "flowers_pink",
+   "x": 10.857,
+   "y": 28.944
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 9.499,
+   "y": 25.847
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 19.764,
+   "y": 15.42
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 8.233,
+   "y": 23.889
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 12.372,
+   "y": 22.643
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 28.146,
+   "y": 11.636
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 1.183,
+   "y": 18.4
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 29.652,
+   "y": 10.711
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 5.672,
+   "y": 32.488
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 9.524,
+   "y": 35.511
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 16.311,
+   "y": 28.86
+  },
+  {
+   "type": "flowers_white",
+   "x": 29.779,
+   "y": 33.225
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 0.957,
+   "y": 29.356
+  },
+  {
+   "type": "flowers_white",
+   "x": 15.017,
+   "y": 15.823
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 14.568,
+   "y": 17.194
+  },
+  {
+   "type": "flowers_purple",
+   "x": 2.513,
+   "y": 26.317
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 20.428,
+   "y": 7.904
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 31.121,
+   "y": 17.182
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 21.92,
+   "y": 28.563
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 29.311,
+   "y": 25.96
+  },
+  {
+   "type": "flowers_pink",
+   "x": 7.026,
+   "y": 6.805
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 13.481,
+   "y": 30.111
+  },
+  {
+   "type": "flowers_white",
+   "x": 5.944,
+   "y": 8.004
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 7.313,
+   "y": 22.179
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 22.715,
+   "y": 35.103
+  },
+  {
+   "type": "flowers_pink",
+   "x": 15.431,
+   "y": 29.588
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 2.92,
+   "y": 11.323
+  },
+  {
+   "type": "flowers_pink",
+   "x": 5.409,
+   "y": 20.132
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 15.498,
+   "y": 25.686
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 1.757,
+   "y": 28.171
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 3.352,
+   "y": 36.779
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 25.747,
+   "y": 30.327
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 3.815,
+   "y": 30.798
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 31.01,
+   "y": 9.57
+  },
+  {
+   "type": "flowers_white",
+   "x": 25.315,
+   "y": 27.745
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 0.545,
+   "y": 21.462
+  },
+  {
+   "type": "flowers_pink",
+   "x": 11.366,
+   "y": 12.838
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 1.35,
+   "y": 19.934
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 15.958,
+   "y": 0.763
+  },
+  {
+   "type": "flowers_pink",
+   "x": 29.326,
+   "y": 20.19
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 30.368,
+   "y": 8.063
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 9.136,
+   "y": 30.158
+  },
+  {
+   "type": "flowers_purple",
+   "x": 4.751,
+   "y": 24.82
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 23.697,
+   "y": 36.455
+  },
+  {
+   "type": "flowers_purple",
+   "x": 8.805,
+   "y": 38.491
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 7.68,
+   "y": 18.036
+  },
+  {
+   "type": "flowers_purple",
+   "x": 29.076,
+   "y": 39.404
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 0.612,
+   "y": 11.412
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 22.384,
+   "y": 30.093
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 14.409,
+   "y": 32.541
+  },
+  {
+   "type": "flowers_pink",
+   "x": 3.923,
+   "y": 28.005
+  },
+  {
+   "type": "flowers_pink",
+   "x": 15.036,
+   "y": 36.361
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 13.109,
+   "y": 29.255
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 1.681,
+   "y": 16.521
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 11.12,
+   "y": 37.85
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 17.268,
+   "y": 19.745
+  },
+  {
+   "type": "flowers_white",
+   "x": 14.612,
+   "y": 31.008
+  },
+  {
+   "type": "flowers_white",
+   "x": 17.136,
+   "y": 4.604
+  },
+  {
+   "type": "flowers_white",
+   "x": 10.831,
+   "y": 3.779
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 16.921,
+   "y": 39.049
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 7.254,
+   "y": 5.684
+  },
+  {
+   "type": "flowers_pink",
+   "x": 29.285,
+   "y": 8.268
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 7.744,
+   "y": 9.685
+  },
+  {
+   "type": "flowers_pink",
+   "x": 13.227,
+   "y": 15.947
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 10.638,
+   "y": 30.833
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 4.625,
+   "y": 23.75
+  },
+  {
+   "type": "flowers_pink",
+   "x": 10.442,
+   "y": 23.878
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 2.503,
+   "y": 29.568
+  },
+  {
+   "type": "flowers_pink",
+   "x": 30.4,
+   "y": 31.787
+  },
+  {
+   "type": "flowers_white",
+   "x": 6.606,
+   "y": 4.928
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 16.342,
+   "y": 34.931
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 30.649,
+   "y": 5.569
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 22.01,
+   "y": 25.486
+  },
+  {
+   "type": "flowers_purple",
+   "x": 14.963,
+   "y": 20.174
+  },
+  {
+   "type": "flowers_yellow",
+   "x": 12.263,
+   "y": 33.154
+  },
+  {
+   "type": "flowers_purple",
+   "x": 24.693,
+   "y": 32.658
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 25.473,
+   "y": 33.907
+  },
+  {
+   "type": "flowers_purple",
+   "x": 2.127,
+   "y": 37.103
+  },
+  {
+   "type": "flowers_pink",
+   "x": 15.459,
+   "y": 5.299
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 7.472,
+   "y": 0.637
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 18.646,
+   "y": 17.926
+  },
+  {
+   "type": "grass_tuft_b",
+   "x": 14.484,
+   "y": 14.748
+  },
+  {
+   "type": "flowers_white",
+   "x": 1.508,
+   "y": 3.089
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 3.055,
+   "y": 14.185
+  },
+  {
+   "type": "grass_tuft_a",
+   "x": 6.692,
+   "y": 35.465
+  }
+ ],
+ "sheep": [
+  {
+   "x": 6.5,
+   "y": 13.5
+  },
+  {
+   "x": 8.2,
+   "y": 15.4
+  },
+  {
+   "x": 5.6,
+   "y": 15.8
+  }
+ ],
+ "sheep_pen": [
+  4.5,
+  11.5,
+  9.5,
+  16.5
+ ],
+ "player_start": [
+  17.5,
+  10.6
+ ]
+}
