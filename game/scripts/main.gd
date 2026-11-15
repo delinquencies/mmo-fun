@@ -3,7 +3,6 @@ extends Control
 ## (resolution comparison), input, zoom and the HUD.
 
 const SETS: PackedStringArray = ["t64", "t96"]
-const ZOOMS: PackedFloat32Array = [0.5, 1.0, 1.5, 2.0, 3.0, 4.0]
 const MAP := "res://data/maps/homestead.json"
 
 var sim := WorldSim.new()            # the world being shown: offline sim or the network replica
@@ -26,13 +25,14 @@ var asset_sets: Dictionary = {}
 var active := 0
 var compare := false
 var matched_scale := false
-var zoom_i := 3
 var show_grid := false
 var show_collision := false
 var show_energy := false
 var show_help := true
-const UI_SCALES: PackedFloat32Array = [1.0, 1.5, 2.0]
-var ui_scale_i := 0
+# Display scale (world zoom and interface size, independent; client-local prefs)
+var display := DisplaySettings.new()
+var settings_win: SettingsWindow
+var ui_factor := 1.0                 # physical px per UI px (Window.content_scale_factor)
 
 var views: Array[WorldView] = []
 var cells: Array[Control] = []
@@ -76,13 +76,12 @@ func _ready() -> void:
 		net.predict = false
 	if cli.has("set"):
 		active = maxi(0, SETS.find(cli["set"]))
-	if cli.has("zoom"):
-		zoom_i = maxi(0, Array(ZOOMS).find(float(cli["zoom"])))
+	_setup_display()
+	show_help = display.show_help and not cli.has("nohelp")
 	compare = cli.has("compare")
 	matched_scale = cli.has("matched")
 	show_grid = cli.has("grid")
 	show_collision = cli.has("collision")
-	show_help = not cli.has("nohelp")
 	if cli.has("pos"):
 		var p: PackedStringArray = String(cli["pos"]).split(",")
 		sim.player_pos = Vector2(float(p[0]), float(p[1]))
@@ -123,6 +122,17 @@ func _ready() -> void:
 	skills_win.visible = false
 	target_win.visible = false
 	death_win.visible = false
+	settings_win = SettingsWindow.new(display.ui_choices)
+	add_child(settings_win)
+	settings_win.visible = false
+	settings_win.close_requested.connect(func(): settings_win.visible = false)
+	settings_win.zoom_requested.connect(_zoom)
+	settings_win.ui_scale_requested.connect(set_ui_scale)
+	settings_win.reset_requested.connect(func():
+		display.reset_to_default()
+		display.save_prefs()
+		_apply_view_settings()
+		_apply_ui_scale())
 	_place_combat_windows.call_deferred()
 	_place_connect_window.call_deferred()
 	if cli.has("connect"):
@@ -133,8 +143,7 @@ func _ready() -> void:
 		if cli.has("name"):
 			connect_win.name_edit.text = String(cli["name"])
 		connect_win._on_connect.call_deferred()
-	if cli.has("ui_scale"):
-		set_ui_scale(float(cli["ui_scale"]))
+	_apply_ui_scale.call_deferred()
 	if cli.has("scenario"):
 		scenario = load("res://scripts/debug/scenario_runner.gd").new()
 		scenario.main = self
@@ -162,7 +171,7 @@ func _switch_world(new_sim: WorldSim, authority: Object) -> void:
 	name_labels.clear()
 	hovered_id = ""
 	_rebuild_views()
-	set_ui_scale(UI_SCALES[ui_scale_i])
+	_apply_ui_scale()
 	for w in [connect_win, login_win, char_win]:
 		if w.is_inside_tree():
 			move_child(w, -1)
@@ -259,12 +268,16 @@ func _on_left_world(reason: String) -> void:
 	net.send_chars("list")
 
 
+## Default layout down the left edge, under the HUD. Windows the player has
+## dragged keep their place.
 func _place_combat_windows() -> void:
 	vitals_win.fit()
-	vitals_win.position = Vector2(12, 120)
 	target_win.fit()
-	target_win.position = Vector2(12, 120 + vitals_win.size.y + 8)
-	skills_win.position = Vector2(12, 420)
+	var y := maxf(120.0, hud_panel.position.y + hud_panel.size.y + 8)
+	for w in [vitals_win, target_win, skills_win]:
+		if not w.user_moved:
+			w.position = Vector2(12, y)
+		y = w.position.y + w.size.y + 8
 
 
 ## Selection: any creature or other player becomes the current target.
@@ -448,7 +461,8 @@ func _build_hud() -> void:
 		"Mouse wheel / + -  zoom      G  tile grid      K  collision + sort anchors",
 		"E  blade-energy preview      F5  hot-reload forged assets      F12  screenshot      H  hide help",
 		"Left click  select / name      Double-click  use (door, chest, pick up, equip)      Drag  move items",
-		"I  backpack      P  equipment      Shift+drag  move one from a stack      F2  UI scale      F9  realm connection",
+		"I  backpack      P  equipment      Shift+drag  move one from a stack      F9  realm connection",
+		"O  settings (world zoom, interface size)      F2  cycle interface size",
 		"Click  select target      Double-click / Space  attack      Esc  stop      J  skills      N  damage numbers",
 	])
 	help_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -468,15 +482,23 @@ func _rebuild_views() -> void:
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cell.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		cell.clip_contents = true
-		var svc := SubViewportContainer.new()
-		svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		svc.stretch = true
-		svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		# The world renders into a SubViewport sized in *physical* pixels and is
+		# shown 1:1 by a TextureRect, so the interface scale (content_scale_factor)
+		# never resamples the world; only the camera zoom sizes it.
 		var vp := SubViewport.new()
 		vp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 		vp.snap_2d_transforms_to_pixel = true
-		svc.add_child(vp)
-		cell.add_child(svc)
+		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		vp.size = Vector2i(16, 16)
+		cell.add_child(vp)
+		var tr := TextureRect.new()
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_SCALE
+		tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		tr.texture = vp.get_texture()
+		tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		cell.add_child(tr)
 		var view := WorldView.new()
 		view.setup(sim, asset_sets[id])
 		vp.add_child(view)
@@ -499,7 +521,7 @@ func _rebuild_views() -> void:
 
 func _apply_view_settings() -> void:
 	for v in views:
-		var z := ZOOMS[zoom_i]
+		var z := display.world_zoom * DisplaySettings.os_scale()
 		if matched_scale and v.aset.tile_w != 64:
 			z *= 64.0 / v.aset.tile_w
 		v.camera.zoom = Vector2(z, z)
@@ -551,6 +573,8 @@ func _input(event: InputEvent) -> void:
 			_apply_view_settings()
 		KEY_H, KEY_F1:
 			show_help = not show_help
+			display.show_help = show_help
+			display.save_prefs()
 			_apply_view_settings()
 		KEY_F5:
 			for id in SETS:
@@ -561,8 +585,14 @@ func _input(event: InputEvent) -> void:
 		KEY_P:
 			game_ui.toggle_equipment()
 		KEY_F2:
-			ui_scale_i = (ui_scale_i + 1) % UI_SCALES.size()
-			set_ui_scale(UI_SCALES[ui_scale_i])
+			set_ui_scale(display.cycle_ui(1))
+		KEY_O, KEY_F10:
+			settings_win.visible = not settings_win.visible
+			if settings_win.visible:
+				_refresh_settings()
+				settings_win.position = ((size - settings_win.size) * 0.5).round()
+				move_child(settings_win, -1)
+				settings_win.pop_in()
 		KEY_SPACE:
 			_attack_target()
 		KEY_ESCAPE:
@@ -580,8 +610,10 @@ func _input(event: InputEvent) -> void:
 
 
 func _zoom(d: int) -> void:
-	zoom_i = clampi(zoom_i + d, 0, ZOOMS.size() - 1)
+	display.step_zoom(d)
+	display.save_prefs()
 	_apply_view_settings()
+	_refresh_settings()
 
 
 func _key_dir() -> Vector2:
@@ -603,8 +635,7 @@ func _mouse_world_dir() -> Vector2:
 		var cell := cells[k]
 		var local := cell.get_local_mouse_position()
 		if Rect2(Vector2.ZERO, cell.size).has_point(local):
-			var vp: SubViewport = cell.get_child(0).get_child(0)
-			var screen := vp.get_canvas_transform().affine_inverse() * local
+			var screen := cell_to_world_px(k, local)
 			var target := Iso.to_world(screen, views[k].aset.tile_w)
 			var d := target - sim.player_pos
 			return d if d.length() > 0.15 else Vector2.ZERO
@@ -637,6 +668,7 @@ func _process(dt: float) -> void:
 			n.render_facing = n.facing
 			n.render_moving = n.moving
 	audio.listener_pos = sim.player_pos
+	_sync_viewport_sizes()
 	for v in views:
 		v.sync(dt)
 	_update_floaters(dt)
@@ -678,8 +710,8 @@ func _net_line() -> String:
 func _update_hud() -> void:
 	var a: AssetSet = asset_sets.get(SETS[active])
 	var mode := "side-by-side (%s)" % ("matched world scale" if matched_scale else "native pixels") if compare else a.label()
-	hud.text = "Asset set: %s   |   %s\nZoom %.1fx   |   %d FPS\nPlayer (%.2f, %.2f)  tile (%d, %d)  facing %s%s" % [
-		"compare" if compare else a.id, mode, ZOOMS[zoom_i], Engine.get_frames_per_second(),
+	hud.text = "Asset set: %s   |   %s\nZoom %.2fx   UI %d%%   |   %d FPS\nPlayer (%.2f, %.2f)  tile (%d, %d)  facing %s%s" % [
+		"compare" if compare else a.id, mode, display.world_zoom, roundi(ui_factor / DisplaySettings.os_scale() * 100.0), Engine.get_frames_per_second(),
 		sim.player_pos.x, sim.player_pos.y, floori(sim.player_pos.x), floori(sim.player_pos.y),
 		Iso.DIRECTIONS[sim.player_facing], "  (running)" if sim.player_running and sim.player_moving else ""]
 	hud.text += "\n" + _net_line()
@@ -694,11 +726,77 @@ func _screenshot(path: String) -> void:
 # --- Slice 002: world interaction (client intent -> InteractionCommand) -----
 
 func set_ui_scale(sc: float) -> void:
-	game_ui.set_ui_scale(sc)
+	display.ui_scale = display.nearest_ui_choice(sc)
+	display.save_prefs()
+	_apply_ui_scale()
 
 
 func zoom_step(d: int) -> void:
 	_zoom(d)
+
+
+## Exact world zoom for automated close-ups (not clamped, not saved).
+func set_world_zoom(z: float) -> void:
+	display.world_zoom = z
+	_apply_view_settings()
+
+
+# --- display scale ---------------------------------------------------------------
+
+func _setup_display() -> void:
+	var automated := cli.has("scenario") or cli.has("shot")
+	display.persist = not automated and not cli.has("no_prefs")
+	display.load_prefs()
+	if cli.has("zoom"):
+		display.world_zoom = float(cli["zoom"])      # exact, for screenshots
+	if cli.has("ui_scale"):
+		display.ui_scale = float(cli["ui_scale"])
+	var win := get_window()
+	if cli.has("window"):
+		var wh: PackedStringArray = String(cli["window"]).split("x")
+		win.size = Vector2i(int(wh[0]), int(wh[1]))
+	elif not automated and DisplayServer.get_name() != "headless" and win.mode == Window.MODE_WINDOWED:
+		win.size = display.initial_window_size()
+		win.move_to_center()
+	# Interface scaling uses Godot's canvas_items stretch with a free-sized
+	# layout: no base resolution, just content_scale_factor (fonts stay sharp).
+	win.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	win.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	win.content_scale_size = Vector2i.ZERO
+	win.size_changed.connect(_apply_ui_scale)
+
+
+## Apply the interface scale for the current window size, then keep every
+## window on screen.
+func _apply_ui_scale() -> void:
+	var win := get_window()
+	ui_factor = display.effective_ui_factor(Vector2(win.size))
+	if not is_equal_approx(win.content_scale_factor, ui_factor):
+		win.content_scale_factor = ui_factor
+	_clamp_windows.call_deferred()
+	_refresh_settings()
+
+
+func _clamp_windows() -> void:
+	if is_instance_valid(game_ui) and game_ui.backpack:
+		game_ui.relayout()
+	_place_combat_windows()
+	var v := get_viewport_rect().size
+	var wins: Array = []
+	for parent in [self, game_ui]:
+		if is_instance_valid(parent):
+			for w in parent.get_children():
+				if w is GameWindow:
+					wins.append(w)
+	for w in wins:
+		w.position = Vector2(clampf(w.position.x, 0, maxf(0, v.x - w.size.x)), clampf(w.position.y, 0, maxf(0, v.y - w.size.y))).round()
+	_sync_viewport_sizes()
+
+
+func _refresh_settings() -> void:
+	if settings_win:
+		settings_win.show_values(display.world_zoom, display.zoom_min, display.zoom_max, display.ui_scale, ui_factor / DisplaySettings.os_scale())
+		settings_win.fit()
 
 
 func _setup_cursors() -> void:
@@ -722,8 +820,7 @@ func screen_to_world(screen: Vector2) -> Dictionary:
 		var cell := cells[k]
 		var local := screen - cell.global_position
 		if Rect2(Vector2.ZERO, cell.size).has_point(local):
-			var vp: SubViewport = cell.get_child(0).get_child(0)
-			var px := vp.get_canvas_transform().affine_inverse() * local
+			var px := cell_to_world_px(k, local)
 			return {"k": k, "px": px, "world": Iso.to_world(px, views[k].aset.tile_w)}
 	return {}
 
@@ -733,9 +830,37 @@ func world_to_screen(world: Vector2, height_px := 0.0, k := 0) -> Vector2:
 	if views.is_empty():
 		return Vector2.ZERO
 	k = mini(k, views.size() - 1)
-	var vp: SubViewport = cells[k].get_child(0).get_child(0)
 	var h := height_px * views[k].aset.tile_w / 64.0
-	return cells[k].global_position + vp.get_canvas_transform() * (Iso.to_screen(world, views[k].aset.tile_w) - Vector2(0, h))
+	return world_px_to_screen(k, Iso.to_screen(world, views[k].aset.tile_w) - Vector2(0, h))
+
+
+func _vp(k: int) -> SubViewport:
+	return cells[k].get_child(0)
+
+
+## Physical viewport pixels per UI (layout) pixel in view k.
+func _vp_ratio(k: int) -> Vector2:
+	var c := cells[k].size
+	var v := Vector2(_vp(k).size)
+	return Vector2(v.x / maxf(c.x, 1.0), v.y / maxf(c.y, 1.0))
+
+
+## Point in cell k's local UI coordinates -> world pixel (iso screen space).
+func cell_to_world_px(k: int, local: Vector2) -> Vector2:
+	return _vp(k).get_canvas_transform().affine_inverse() * (local * _vp_ratio(k))
+
+
+## World pixel in view k -> root UI coordinates (what mouse events use).
+func world_px_to_screen(k: int, px: Vector2) -> Vector2:
+	return cells[k].global_position + (_vp(k).get_canvas_transform() * px) / _vp_ratio(k)
+
+
+## Keep every world SubViewport at the physical pixel size of its cell.
+func _sync_viewport_sizes() -> void:
+	for k in cells.size():
+		var want := Vector2i((cells[k].size * ui_factor).round())
+		if want.x > 0 and want.y > 0 and _vp(k).size != want:
+			_vp(k).size = want
 
 
 func pick_at(screen: Vector2) -> String:

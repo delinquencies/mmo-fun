@@ -11,10 +11,12 @@ var shot_dir := ""
 var fails := 0
 var checks := 0
 var P := WorldSim.PLAYER_ID
+var base_zoom := 1.5
 
 
 func _ready() -> void:
 	shot_dir = String(main.cli.get("shot_dir", "user://scenario"))
+	base_zoom = main.display.world_zoom
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(shot_dir))
 	_run.call_deferred()
 
@@ -62,7 +64,7 @@ func _motion(to: Vector2) -> void:
 	ev.relative = to - _mouse
 	ev.button_mask = _mask
 	_mouse = to
-	get_viewport().push_input(ev)
+	get_viewport().push_input(ev, true)
 
 
 func mouse_to(to: Vector2, steps := 6) -> void:
@@ -84,7 +86,7 @@ func _button(pressed: bool, double := false, button := MOUSE_BUTTON_LEFT) -> voi
 	else:
 		_mask &= ~(1 << (button - 1))
 	ev.button_mask = _mask
-	get_viewport().push_input(ev)
+	get_viewport().push_input(ev, true)
 
 
 func click(at: Vector2) -> void:
@@ -119,11 +121,11 @@ func key(code: Key) -> void:
 	ev.physical_keycode = code
 	ev.keycode = code
 	ev.pressed = true
-	get_viewport().push_input(ev)
+	get_viewport().push_input(ev, true)
 	await frames(1)
 	ev = ev.duplicate()
 	ev.pressed = false
-	get_viewport().push_input(ev)
+	get_viewport().push_input(ev, true)
 	await frames(2)
 
 
@@ -142,8 +144,21 @@ func walk_to(target: Vector2, timeout := 8.0) -> void:
 func entity_screen(id: String) -> Vector2:
 	var v: WorldView = main.views[0]
 	var px := v.pick_point(id)
-	var vp: SubViewport = main.cells[0].get_child(0).get_child(0)
-	return main.cells[0].global_position + vp.get_canvas_transform() * px
+	return main.world_px_to_screen(0, px)
+
+
+## Every visible window lies fully inside the layout rect.
+func windows_on_screen() -> bool:
+	var v: Vector2 = main.get_viewport_rect().size
+	var ok := true
+	for parent in [main, main.game_ui]:
+		for w in parent.get_children():
+			if w is GameWindow and w.visible:
+				var r := Rect2(w.position, w.size)
+				if r.position.x < -0.5 or r.position.y < -0.5 or r.end.x > v.x + 0.5 or r.end.y > v.y + 0.5:
+					say("   window %s at %s outside %s" % [w.title_label.text, r, v])
+					ok = false
+	return ok
 
 
 func slot_screen(s: ItemSlot) -> Vector2:
@@ -250,8 +265,7 @@ func _run_mp_bob() -> void:
 	check(await _until(func(): return main.views[0].actor_views.has(alice) and main.views[0].actor_views[alice].overlay.visible, 5.0), "Bob: Alice is drawn with the weapon layer")
 	await seconds(2.5)
 	await shot("mp_bob_sees_alice")
-	main.zoom_i = 4
-	main._apply_view_settings()
+	main.set_world_zoom(3.0)
 	await shot("mp_bob_sees_alice_zoom3")
 	say("\nscenario %s: %d checks, %d failures" % [name_, checks, fails])
 	main.quit_game(1 if fails else 0)
@@ -275,8 +289,7 @@ func _until(cond: Callable, timeout: float) -> bool:
 func npc_screen(id: String) -> Vector2:
 	var v: WorldView = main.views[0]
 	var nv: ActorSprite = v.npc_views[id]
-	var vp: SubViewport = main.cells[0].get_child(0).get_child(0)
-	return main.cells[0].global_position + vp.get_canvas_transform() * (nv.position + Vector2(0, -24) * v.aset.tile_w / 64.0)
+	return main.world_px_to_screen(0, nv.position + Vector2(0, -24) * v.aset.tile_w / 64.0)
 
 
 func _run_combat() -> void:
@@ -296,11 +309,9 @@ func _run_combat() -> void:
 	await double_click(slot_screen(slot_of(cw, storm)))
 	check(await _until(func(): return sim.items.equipped("player", "main_hand") == storm, 3.0), "Stormcaller equipped by double-click")
 	await seconds(0.6)
-	main.zoom_i = 4
-	main._apply_view_settings()
+	main.set_world_zoom(3.0)
 	await shot("c1_stormcaller_idle")
-	main.zoom_i = 3
-	main._apply_view_settings()
+	main.set_world_zoom(base_zoom)
 	ui._open_container(armory.container_id)
 	ui.chest_windows[armory.container_id].close_requested.emit()
 	for wp in [Vector2(16.4, 16.8), Vector2(13.2, 22.4)]:
@@ -396,6 +407,8 @@ func _ui_login(user: String, pw: String, register: bool) -> bool:
 		return false
 	lw.user_edit.text = user
 	lw.pass_edit.text = pw
+	await frames(3)
+	await shot("%s_login" % name_)
 	if register:
 		await press(lw.register_btn)
 		if not await _until(func(): return lw.status.text.contains("created") or lw.status.text.contains("taken"), 8.0):
@@ -409,6 +422,7 @@ func _ui_enter(char_name: String, cloth: String, create: bool) -> bool:
 	if create:
 		cw.name_edit.text = char_name
 		await press(cw.swatches[cloth])
+		await shot("%s_character_create" % name_)
 		await press(cw.create_btn)
 		if not await _until(func(): return cw.status.text.contains("created"), 8.0):
 			return false
@@ -516,6 +530,150 @@ func _run_dod() -> void:
 	main.quit_game(1 if fails else 0)
 
 
+func wheel(at: Vector2, up: bool) -> void:
+	await mouse_to(at, 2)
+	_button(true, false, MOUSE_BUTTON_WHEEL_UP if up else MOUSE_BUTTON_WHEEL_DOWN)
+	await frames(1)
+	_button(false, false, MOUSE_BUTTON_WHEEL_UP if up else MOUSE_BUTTON_WHEEL_DOWN)
+	await frames(3)
+
+
+## An interactable or ground item whose pick point is on screen and not under
+## any window or HUD panel ("" if none).
+func visible_entity() -> String:
+	var ids: Array = ["cottage_door", "cottage_chest", "armory_chest"]
+	for uid in main.sim.items.world_items():
+		ids.append("item:%d" % uid)
+	var view: Rect2 = main.get_viewport_rect().grow(-20)
+	for id in ids:
+		var p := entity_screen(id)
+		if not view.has_point(p):
+			continue
+		var covered := false
+		for c in main.get_children() + main.game_ui.get_children():
+			if c is Control and c.visible and (c is GameWindow or c is PanelContainer) and c.get_global_rect().grow(6).has_point(p):
+				covered = true
+		if not covered:
+			return id
+	return ""
+
+
+## Hover an entity through real mouse motion; true if the world picked it.
+func hover_ok(id: String) -> bool:
+	await mouse_to(entity_screen(id) + Vector2(3, 1), 4)
+	await frames(2)
+	return main.hovered_id == id
+
+
+## Corrective directive "Game scale & readability": world zoom and interface
+## size through real input, independence of the two, picking and drag-and-drop
+## at several scales, window resize, reset.
+func _run_display() -> void:
+	await frames(20)
+	var sim: WorldSim = main.sim
+	var ui: GameUI = main.game_ui
+	var v: WorldView = main.views[0]
+	var win := get_window()
+	var os_s := DisplaySettings.os_scale()
+	var expect_ui: float = main.display.auto_ui_scale()
+	say("window %s, screen %s points, os scale %.2f, layout %s" % [win.size, DisplaySettings.screen_points(), os_s, main.get_viewport_rect().size])
+	check(is_equal_approx(main.display.world_zoom, 1.5) and is_equal_approx(v.camera.zoom.x, 1.5 * os_s), "D1 default world zoom 1.5x (camera %.2f)" % v.camera.zoom.x)
+	check(is_equal_approx(win.content_scale_factor, minf(expect_ui * os_s, win.size.y / 540.0)), "D1 interface size %d%% for this screen (factor %.2f)" % [roundi(expect_ui * 100), win.content_scale_factor])
+	var char_px := 72.0 * v.camera.zoom.x
+	check(char_px >= 100.0 and char_px <= 120.0, "D1 character is %d screen px tall at the default zoom" % roundi(char_px))
+	var vp_size: Vector2 = Vector2(main._vp(0).size)
+	check(vp_size.distance_to(Vector2(win.size)) < 2.0, "D1 world renders at the full window resolution (%s for window %s)" % [vp_size, win.size])
+	check(windows_on_screen(), "D1 all windows inside the view")
+	await shot("d1_default")
+
+	# --- world zoom with the mouse wheel; interface unaffected
+	var factor0: float = win.content_scale_factor
+	var label_h0: float = ui.backpack.size.y
+	var mid: Vector2 = main.get_viewport_rect().size * Vector2(0.45, 0.6)
+	await wheel(mid, true)
+	check(is_equal_approx(main.display.world_zoom, 1.75), "D2 wheel up zooms in to 1.75x")
+	await wheel(mid, true)
+	await wheel(mid, true)
+	check(is_equal_approx(main.display.world_zoom, 2.0), "D2 zoom stops at 2.0x")
+	check(win.content_scale_factor == factor0 and ui.backpack.size.y == label_h0, "D2 world zoom leaves the interface size alone")
+	check(await hover_ok("cottage_door"), "D2 hover picks the door at 2.0x")
+	await shot("d2_zoom_2")
+	for i in 5:
+		await wheel(mid, false)
+	check(is_equal_approx(main.display.world_zoom, 1.0), "D2 zoom stops at 1.0x")
+	check(await hover_ok("cottage_chest"), "D2 hover picks the chest at 1.0x")
+	await shot("d2_zoom_1")
+
+	# --- settings window through clicks
+	await key(KEY_O)
+	var sw: SettingsWindow = main.settings_win
+	check(sw.visible, "D3 O opens the settings window")
+	await press(sw.zoom_plus)
+	await press(sw.zoom_plus)
+	check(is_equal_approx(main.display.world_zoom, 1.5), "D3 zoom + button (1.0 -> 1.5)")
+	await press(sw.ui_buttons[2.0])
+	check(is_equal_approx(win.content_scale_factor, minf(2.0 * os_s, win.size.y / 540.0)), "D3 200%% button sets the interface factor (%.2f)" % win.content_scale_factor)
+	check(is_equal_approx(v.camera.zoom.x, 1.5 * os_s), "D3 interface size leaves the world zoom alone")
+	check(Vector2(main._vp(0).size).distance_to(Vector2(win.size)) < 2.0, "D3 world still renders at full window resolution")
+	check(windows_on_screen(), "D3 all windows inside the view at 200%")
+	var bp_r := Rect2(ui.backpack.position, ui.backpack.size)
+	var eq_r := Rect2(ui.equipment_win.position, ui.equipment_win.size)
+	check(not bp_r.intersects(eq_r), "D3 backpack and equipment do not overlap at 200%")
+	await shot("d3_ui_200")
+	# picking and drag-and-drop at 200%
+	await key(KEY_O)
+	var vis := visible_entity()
+	check(vis != "" and await hover_ok(vis), "D4 hover picks %s at 200%% interface" % vis)
+	var apples := find_on_ground("red_apple")
+	var ap: Vector2 = sim.items.location(apples)["pos"]
+	await walk_to(ap + Vector2(0.6, 0.6))
+	await drag(entity_screen("item:%d" % apples), slot_screen(ui.backpack.slots[2]))
+	check(sim.items.location(apples).get("container", "") == "player.backpack" and int(sim.items.location(apples).get("slot", -1)) == 2, "D4 drag from the ground into backpack slot 3 lands exactly there at 200%")
+	await drag(slot_screen(ui.backpack.slots[2]), slot_screen(ui.backpack.slots[9]))
+	check(int(sim.items.location(apples).get("slot", -1)) == 9, "D4 drag between backpack slots at 200%")
+	# 125% (non-integer) too
+	main.set_ui_scale(1.25)
+	await frames(4)
+	await drag(slot_screen(ui.backpack.slots[9]), slot_screen(ui.backpack.slots[0]))
+	check(int(sim.items.location(apples).get("slot", -1)) == 0, "D4 drag between backpack slots at 125%")
+	var drop1: Vector2 = sim.player_pos + Vector2(0.8, -0.5)
+	await drag(slot_screen(ui.backpack.slots[0]), main.world_to_screen(drop1))
+	var l1: Dictionary = sim.items.location(apples)
+	check(l1.get("kind", "") == "world" and (l1["pos"] as Vector2).distance_to(drop1) < 0.35, "D4 drop onto the ground lands under the cursor at 125%")
+	check(await hover_ok("item:%d" % apples), "D4 hover picks the dropped apples at 125%")
+	await drag(entity_screen("item:%d" % apples), slot_screen(ui.backpack.slots[0]))
+	check(int(sim.items.location(apples).get("slot", -1)) == 0, "D4 drag them back into backpack slot 1 at 125%")
+	await shot("d4_ui_125")
+
+	# --- small window: interface reduced to fit, nothing off screen
+	main.set_ui_scale(2.0)
+	var big := win.size
+	win.size = Vector2i(1280, 720)
+	await frames(8)
+	check(main.get_viewport_rect().size.y >= 539.0, "D5 1280x720 window at 200%%: layout keeps %d points of height" % roundi(main.get_viewport_rect().size.y))
+	check(windows_on_screen(), "D5 all windows inside the 1280x720 window")
+	check(Vector2(main._vp(0).size).distance_to(Vector2(win.size)) < 2.0, "D5 world follows the window size")
+	var drop_at: Vector2 = sim.player_pos + Vector2(0.9, 0.4)
+	await drag(slot_screen(ui.backpack.slots[0]), main.world_to_screen(drop_at))
+	var loc: Dictionary = sim.items.location(apples)
+	check(loc.get("kind", "") == "world" and (loc["pos"] as Vector2).distance_to(drop_at) < 0.35, "D5 drop onto the ground lands where the cursor is (%s vs %s)" % [loc.get("pos"), drop_at])
+	check(await hover_ok("item:%d" % apples), "D5 hover picks the dropped apples after the resize")
+	await shot("d5_small_window")
+	win.size = big
+	await frames(8)
+
+	# --- reset
+	await key(KEY_O)
+	await press(sw.zoom_plus)
+	await press(sw.reset_btn)
+	check(is_equal_approx(main.display.world_zoom, 1.5) and is_equal_approx(main.display.ui_scale, expect_ui), "D6 Reset to default: zoom 1.5x, interface %d%%" % roundi(expect_ui * 100))
+	check(is_equal_approx(win.content_scale_factor, minf(expect_ui * os_s, win.size.y / 540.0)), "D6 reset applied to the window")
+	await shot("d6_reset")
+	check(not FileAccess.file_exists(main.display.path) or not main.display.persist, "D6 automated run did not write the player's preferences")
+	say("\nscenario %s: %d checks, %d failures" % [name_, checks, fails])
+	get_tree().quit(1 if fails else 0)
+
+
 func _abort(why: String) -> void:
 	check(false, "ABORT: " + why)
 	say("\nscenario %s: %d checks, %d failures (aborted)" % [name_, checks, fails])
@@ -530,6 +688,9 @@ func _run() -> void:
 		return
 	if name_ == "combat":
 		await _run_combat()
+		return
+	if name_ == "display":
+		await _run_display()
 		return
 	if name_ == "mp_alice":
 		await _run_mp_alice()
@@ -635,11 +796,9 @@ func _run() -> void:
 	check(ui.backpack.slots[4].uid == 0 and ui.equipment_win.slots[0].uid == sword, "T03 UI reflects backpack/equipment state")
 	await frames(3)
 	check(main.views[0].player.overlay.visible and main.views[0].player.overlay_id == "iron_sword", "T03 weapon layer visible on the character")
-	main.zoom_i = 4
-	main._apply_view_settings()
+	main.set_world_zoom(3.0)
 	await shot("07_equipped")
-	main.zoom_i = 3
-	main._apply_view_settings()
+	main.set_world_zoom(base_zoom)
 
 	# ---------------- Test 05: invalid destinations ----------------
 	await walk_to(door.pos + Vector2(0.95, 0.15))
@@ -689,10 +848,15 @@ func _run() -> void:
 	check(not ui.equipment_win.visible, "T07 equipment toggled closed with P")
 	await key(KEY_P)
 	check(ui.equipment_win.visible, "T07 equipment reopened")
-	main.set_ui_scale(1.5)
-	await frames(3)
-	await shot("10_ui_scale_1_5")
-	main.set_ui_scale(1.0)
+	var ui0: float = main.display.ui_scale
+	var ui1 := 2.0 if ui0 < 1.75 else 1.0
+	main.set_ui_scale(ui1)
+	await frames(4)
+	await shot("10_ui_scale_%d" % roundi(ui1 * 100))
+	check(windows_on_screen(), "T07 all windows inside the view at %d%% interface size" % roundi(main.ui_factor * 100))
+	main.set_ui_scale(ui0)
+	await frames(4)
+	check(windows_on_screen(), "T07 all windows inside the view after returning to %d%%" % roundi(ui0 * 100))
 
 	check(totals() == before, "ALL item totals conserved across the run")
 	check(store.check_invariants().is_empty(), "ALL ownership invariants hold")

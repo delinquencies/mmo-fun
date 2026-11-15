@@ -46,7 +46,7 @@ func _init() -> void:
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.custom_minimum_size = Vector2(250, 0)
 	content.add_child(status)
-	content.add_child(UISkin.label("Account names: 3-24 letters, digits or _. Passwords: 8+ characters.", UISkin.TEXT_DIM, 11))
+	content.add_child(UISkin.label("Account names: 3-24 letters, digits or _. Passwords: 8+ characters.", UISkin.TEXT_DIM, 12))
 
 
 func _login() -> void:

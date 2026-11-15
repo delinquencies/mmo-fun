@@ -55,7 +55,7 @@ func _init() -> void:
 	create_btn.pressed.connect(func(): create_requested.emit(name_edit.text.strip_edges(), {"cloth": cloth}))
 	row.add_child(create_btn)
 	content.add_child(row)
-	content.add_child(UISkin.label("Names: 3-16 letters; spaces or apostrophes inside. Up to %d characters." % Protocol.MAX_CHARACTERS, UISkin.TEXT_DIM, 11))
+	content.add_child(UISkin.label("Names: 3-16 letters; spaces or apostrophes inside. Up to %d characters." % Protocol.MAX_CHARACTERS, UISkin.TEXT_DIM, 12))
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.custom_minimum_size = Vector2(300, 0)
 	content.add_child(status)
@@ -102,7 +102,7 @@ func populate(characters: Array) -> void:
 		info.add_child(UISkin.label(str(ch["name"]), UISkin.GOLD, 14))
 		var cl: String = ch.get("appearance", {}).get("cloth", "olive")
 		var when: String = str(ch.get("last_played_at", "")).substr(0, 16).replace("T", " ") if ch.get("last_played_at") else "never"
-		info.add_child(UISkin.label("%s cloth - last played %s" % [Appearance.CLOTH.get(cl, {"label": cl})["label"], when], UISkin.TEXT_DIM, 11))
+		info.add_child(UISkin.label("%s cloth - last played %s" % [Appearance.CLOTH.get(cl, {"label": cl})["label"], when], UISkin.TEXT_DIM, 12))
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(info)
 		var b := Button.new()

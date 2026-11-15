@@ -77,10 +77,10 @@ func _draw() -> void:
 	if d.stackable and it.quantity > 1:
 		var font := get_theme_default_font()
 		var txt := str(it.quantity)
-		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 		var p := Vector2(size.x - w - 5, size.y - 6)
-		draw_string_outline(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, 3, Color(0.05, 0.03, 0.02))
-		draw_string(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, UISkin.TEXT)
+		draw_string_outline(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0.05, 0.03, 0.02))
+		draw_string(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UISkin.TEXT)
 
 
 func _gui_input(e: InputEvent) -> void:

@@ -23,6 +23,16 @@ gameplay resolution before any MMO infrastructure is built.
 | `docs/PROTOTYPE_STATUS.md` | Slice 001 report: calibration findings and open art decisions |
 | `game/tests/run_tests.gd` | Headless tests for the item/interaction authority |
 
+## Display scale
+
+- **Mouse wheel** zooms the world: 1.0× to 2.0×, default 1.5×.
+- **F2** cycles the interface size: 100% to 200%. The default depends on the
+  screen, with 150% on a 1080p display.
+- **O** opens Settings, which has both controls and **Reset to default**.
+
+Both settings are saved on your computer. See
+[docs/DISPLAY_SCALING.md](docs/DISPLAY_SCALING.md).
+
 ## Combat (Slice 005)
 
 The woodland clearing south-west of the cottage holds a wolf, a skeleton
@@ -74,7 +84,7 @@ The forged PNGs are committed, so you don't need Python to play.
 | WASD / arrow keys | Move (8 directions; diagonals follow the tile axes) |
 | Shift | Run |
 | Right mouse (hold) | Walk toward the cursor |
-| Mouse wheel, `+` / `-` | Zoom: 0.5×, 1×, 1.5×, 2×, 3×, 4× |
+| Mouse wheel, `+` / `-` | World zoom 1.0× – 2.0× in 0.25 steps (saved) |
 | Tab (or 1 / 2) | Switch between the 64×32 and 96×48 asset sets |
 | C | Side-by-side comparison of both sets |
 | M | In compare mode, switch between native pixels and matched world scale |
@@ -90,7 +100,8 @@ The forged PNGs are committed, so you don't need Python to play.
 | Drag | Move items between ground, backpack, chest and equipment; Shift-drag moves one item from a stack |
 | I / B | Backpack window |
 | P | Equipment window |
-| F2 | UI scale: 1×, 1.5×, 2× |
+| F2 | Interface size: 100%, 125%, 150%, 175%, 200% (saved) |
+| O / F10 | Settings: world zoom, interface size, reset to default |
 
 ## Regenerating art
 
@@ -115,6 +126,9 @@ godot --headless --path game --script res://tests/run_tests.gd
 godot --headless --path game --script res://tests/mp_tests.gd
 # full acceptance run through real mouse/keyboard input + screenshots
 xvfb-run godot --rendering-driver opengl3 --path game -- --scenario=acceptance --shot_dir=/tmp/shots [--set=t96]
+# display scale: zoom, interface sizes, picking and drag-and-drop at each, resize, reset
+xvfb-run -s "-screen 0 1920x1080x24" godot --rendering-driver opengl3 --path game -- --window=1920x1080 --scenario=display --shot_dir=/tmp/d
+godot --headless --path game --script res://tests/display_tests.gd
 ```
 
 Both exit with code 0 when everything passes. After adding new `class_name` scripts, run
@@ -124,5 +138,5 @@ Both exit with code 0 when everything passes. After adding new `class_name` scri
 
 ```bash
 xvfb-run godot --rendering-driver opengl3 --path game -- \
-    --shot=/tmp/out.png --frames=60 --set=t96 --zoom=2 --pos=16.5,11 [--compare] [--matched] [--grid] [--collision] [--nohelp] [--face=0..7] [--walk=0..7]
+    --shot=/tmp/out.png --frames=60 --set=t96 --zoom=2 [--ui_scale=1.5] [--window=1920x1080] --pos=16.5,11 [--compare] [--matched] [--grid] [--collision] [--nohelp] [--face=0..7] [--walk=0..7]
 ```

@@ -28,7 +28,7 @@ stop_backend() {
   kill $KP 2>/dev/null || true; sleep 0.5
 }
 client() {  # role
-  xvfb-run -a -s "-screen 0 1280x720x24" "$G" --rendering-driver opengl3 --path . -- --connect=127.0.0.1:$PORT \
+  xvfb-run -a -s "-screen 0 ${CLIENT_RES:-1280x720}x24" "$G" --rendering-driver opengl3 --path . -- --window=${CLIENT_RES:-1280x720} --connect=127.0.0.1:$PORT \
     --scenario=dod_$1 --shot_dir="$OUT/$1" --nohelp ${2:-} > "$OUT/$1.out" 2>&1
 }
 : > "$OUT/server.log"; : > "$OUT/keeper.log"

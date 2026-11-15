@@ -23,7 +23,7 @@ func _init(p_ui: GameUI, actor: String) -> void:
 		s.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		slots.append(s)
 		col.add_child(s)
-		var l := UISkin.label(cap, UISkin.TEXT_DIM if reserved else UISkin.TEXT, 11)
+		var l := UISkin.label(cap, UISkin.TEXT_DIM if reserved else UISkin.TEXT, 12)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		col.add_child(l)
 		row.add_child(col)

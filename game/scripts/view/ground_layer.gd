@@ -28,7 +28,11 @@ static func build(sim: WorldSim, aset: AssetSet) -> Array[GroundLayer]:
 	for j in sim.size.y:
 		for i in sim.size.x:
 			var top := Iso.to_screen(Vector2(i, j), w)
-			var dst := Rect2(top - Vector2(w * 0.5, 0), Vector2(w, h))
+			# Drawn half a pixel larger on each side so neighbouring diamonds
+			# overlap: at fractional zoom (1.25x, 1.5x, 1.75x) nearest-neighbour
+			# rounding otherwise leaves dotted gaps along tile seams. Logical
+			# tile size and coordinates are unchanged.
+			var dst := Rect2(top - Vector2(w * 0.5, 0), Vector2(w, h)).grow_individual(0.5, 0.25, 0.5, 0.25)
 			var a := posmod(i, period)
 			var b := posmod(j, period)
 			grass.append([dst, Rect2(a * w, b * h, w, h)])

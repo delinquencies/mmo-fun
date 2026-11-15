@@ -1,6 +1,6 @@
 # Project State
 
-_Last updated: Slice 005, "Steel & Sorcery"_
+_Last updated: corrective directive "Game scale & readability" (after Slice 005)_
 
 | Slice | Theme | Status |
 |---|---|---|
@@ -12,6 +12,58 @@ _Last updated: Slice 005, "Steel & Sorcery"_
 
 Native resolution (64×32 vs 96×48) is **still an open director decision**.
 Everything in Slice 002 works with both sets.
+
+## Corrective: game scale and readability
+
+Full description and verification: [docs/DISPLAY_SCALING.md](docs/DISPLAY_SCALING.md).
+
+**Cause.** The game drew in raw pixels: stretch was disabled and the
+interface had no scale by default.
+- Text was 10–14 px.
+- Only the inventory windows could be scaled, and they were bitmap-scaled
+  (`Control.scale`).
+- On HiDPI (Retina or 150–200% Windows) screens, everything rendered at half
+  size.
+- The camera zoom was fine (2.0×); asset sizes were not the problem.
+
+**Fix.**
+- **World zoom:** the camera only, 1.0–2.0× in 0.25 steps, default 1.5×.
+  Mouse wheel or Settings.
+- **Interface size:** 100–200%, a single `Window.content_scale_factor` with
+  canvas_items stretch.
+  - The default comes from the screen: 150% at 1080p.
+  - It is applied to every window, the HUD, login and character screens,
+    tooltips, drag previews and name labels.
+  - Fonts stay sharp, and the size is reduced automatically if the window is
+    too small.
+- **The world renders 1:1 in physical pixels,** so interface scaling never
+  resamples it.
+- Both values are in display points, so HiDPI screens get the same physical
+  size.
+- They are stored in `user://settings.cfg` along with help visibility, with
+  Reset to default.
+- The smallest text was raised from 10–11 to 12 (18 px at 150%).
+- Terrain seams at fractional zoom are fixed.
+
+**Verified** (Xvfb, all automated):
+- Display scenario: 33/33 at each of 1280×720, 1920×1080 and 2560×1440.
+- UI acceptance: 45/45 at all three.
+- Combat walkthrough: 16/16 at 1080p.
+- Login, character creation and restart through the UI: 38/38 at 1080p.
+- Three-process multiplayer GUI with lag at 1080p: 5/5 and 6/6.
+- Headless display preferences: 17/17. Rules, multiplayer and combat: 79,
+  93 and 60, all passing.
+
+**Not verified:**
+- A human eye on a real monitor.
+- A HiDPI display.
+- macOS and Windows builds.
+- A GPU.
+
+**Art.** At 1.5× the 64×32 character is 108 px tall on screen; there are no
+blur or seam problems, so no higher-resolution export is needed for 1080p.
+The 96×48 set at 1.0× gives the same framing pixel-for-pixel and is the
+candidate for 1440p and 4K. It has not been switched.
 
 ## Slice 005: what was built
 

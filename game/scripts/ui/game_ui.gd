@@ -18,7 +18,6 @@ var equipment_win: EquipmentWindow
 var chest_windows: Dictionary = {}     # container id -> ContainerWindow
 var selected_slot: ItemSlot
 var dragging_uid := 0
-var ui_scale := 1.0
 
 
 func setup(p_sim: WorldSim, p_audio: AudioEvents, p_authority: Object = null) -> void:
@@ -41,23 +40,24 @@ func setup(p_sim: WorldSim, p_audio: AudioEvents, p_authority: Object = null) ->
 	_place_default.call_deferred()
 
 
+## Default layout: backpack top-right, equipment under it. Windows the player
+## has dragged keep their place.
 func _place_default() -> void:
 	var v := view_size()
-	backpack.position = Vector2(v.x - backpack.size.x - 14, 96)
-	equipment_win.position = Vector2(v.x - equipment_win.size.x - 14, 96 + backpack.size.y + 8)
+	if not backpack.user_moved:
+		backpack.position = Vector2(v.x - backpack.size.x - 14, 96)
+	if not equipment_win.user_moved:
+		equipment_win.position = Vector2(v.x - equipment_win.size.x - 14, backpack.position.y + backpack.size.y + 8)
 
 
+func relayout() -> void:
+	_place_default()
+
+
+## Layout size in UI pixels. Interface scaling is applied by the window
+## (content_scale_factor), so nothing here multiplies by a scale.
 func view_size() -> Vector2:
-	return get_viewport_rect().size / ui_scale
-
-
-func set_ui_scale(s: float) -> void:
-	ui_scale = s
-	scale = Vector2(s, s)
-	for w in get_children():
-		if w is GameWindow:
-			var v := view_size()
-			w.position = Vector2(clampf(w.position.x, 0, v.x - 60), clampf(w.position.y, 0, v.y - 40))
+	return get_viewport_rect().size
 
 
 func toggle_backpack(show: Variant = null) -> void:
@@ -190,7 +190,7 @@ func make_tooltip(uid: int) -> Control:
 	if d.stackable:
 		facts.append("Stacks to %d" % d.max_stack)
 	facts.append("#%d" % uid)
-	v.add_child(UISkin.label("   ".join(facts), UISkin.INK_DIM, 11, false))
+	v.add_child(UISkin.label("   ".join(facts), UISkin.INK_DIM, 12, false))
 	p.add_child(v)
 	return p
 
@@ -207,8 +207,7 @@ func make_drag_preview(uid: int) -> Control:
 	var icon := UISkin.icon(store.def(store.item(uid).def_id).icon)
 	var tr := TextureRect.new()
 	tr.texture = icon
-	tr.scale = Vector2(ui_scale, ui_scale)
-	tr.position = -icon.get_size() * 0.5 * ui_scale
+	tr.position = -icon.get_size() * 0.5
 	tr.modulate = Color(1, 1, 1, 0.9)
 	root.add_child(tr)
 	return root

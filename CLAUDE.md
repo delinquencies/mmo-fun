@@ -40,3 +40,9 @@
   after touching `game/scripts/sim/combat/`.
 - Test runners fail any test that does not reach its end (`_finished`); keep
   `_finished = true` as the last line of new test functions.
+- Display scale: world zoom (camera) and interface size
+  (`Window.content_scale_factor`) are independent and stored only in
+  `user://settings.cfg`. Never scale individual Control nodes. Screen <-> world
+  goes through `main.cell_to_world_px` / `world_px_to_screen`. Docs:
+  `docs/DISPLAY_SCALING.md`. After UI or view changes, run
+  `--scenario=display` (and `tests/display_tests.gd`) at 1920x1080.

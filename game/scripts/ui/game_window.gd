@@ -13,6 +13,7 @@ var _bg := Panel.new()
 var _bar := Panel.new()
 var _close := TextureButton.new()
 var _dragging := false
+var user_moved := false      # the player dragged it; layout changes keep its spot
 var _drag_off := Vector2.ZERO
 
 
@@ -88,7 +89,9 @@ func _on_bar_input(e: InputEvent) -> void:
 		position.y += -1 if e.pressed else 1
 		modulate = Color(1.06, 1.06, 1.06) if e.pressed else Color.WHITE
 	elif e is InputEventMouseMotion and _dragging:
-		var parent_rect := get_parent_control().get_rect() if get_parent_control() else Rect2(Vector2.ZERO, get_viewport_rect().size)
-		var p: Vector2 = (e.global_position - _drag_off - get_parent_control().global_position) / get_parent_control().scale
-		var view := parent_rect.size / get_parent_control().scale
+		user_moved = true
+		var parent := get_parent_control()
+		var origin := parent.global_position if parent else Vector2.ZERO
+		var p: Vector2 = e.global_position - _drag_off - origin
+		var view := parent.size if parent else get_viewport_rect().size
 		position = Vector2(clampf(p.x, -size.x + 60, view.x - 60), clampf(p.y, 0, view.y - TITLE_H - 8))

@@ -11,7 +11,7 @@ class Bar extends Control:
 	func _init(p_fill: Color, p_caption: String, w := 150) -> void:
 		fill = p_fill
 		caption = p_caption
-		custom_minimum_size = Vector2(w, 14)
+		custom_minimum_size = Vector2(w, 17)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func set_values(v: float, m: float) -> void:
@@ -31,15 +31,15 @@ class Bar extends Control:
 		draw_rect(r, Color(0.55, 0.42, 0.24), false, 1.0)
 		var font := get_theme_default_font()
 		var txt := "%s  %d / %d" % [caption, roundi(value), roundi(max_value)]
-		draw_string_outline(font, Vector2(6, size.y - 3), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, 3, Color(0.05, 0.03, 0.02))
-		draw_string(font, Vector2(6, size.y - 3), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UISkin.TEXT)
+		draw_string_outline(font, Vector2(6, size.y - 4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0.05, 0.03, 0.02))
+		draw_string(font, Vector2(6, size.y - 4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UISkin.TEXT)
 
 
 class VitalsWindow extends GameWindow:
 	var hp := Bar.new(Color(0.62, 0.12, 0.1), "Health")
 	var st := Bar.new(Color(0.55, 0.5, 0.18), "Stamina")
 	var mn := Bar.new(Color(0.16, 0.32, 0.62), "Mana")
-	var status := UISkin.label("", UISkin.TEXT_DIM, 11)
+	var status := UISkin.label("", UISkin.TEXT_DIM, 12)
 
 	func _init() -> void:
 		super("Vitals")
@@ -61,7 +61,7 @@ class VitalsWindow extends GameWindow:
 
 class TargetWindow extends GameWindow:
 	var name_l := UISkin.label("", UISkin.GOLD, 13)
-	var kind_l := UISkin.label("", UISkin.TEXT_DIM, 11)
+	var kind_l := UISkin.label("", UISkin.TEXT_DIM, 12)
 	var hp := Bar.new(Color(0.62, 0.12, 0.1), "Health", 170)
 
 	func _init() -> void:
@@ -103,7 +103,7 @@ class DeathWindow extends GameWindow:
 	func _init() -> void:
 		super("Defeated")
 		content.add_child(UISkin.label("You have fallen. Your belongings are safe.", UISkin.TEXT, 13))
-		content.add_child(UISkin.label("Return to the homestead shrine to recover.", UISkin.TEXT_DIM, 11))
+		content.add_child(UISkin.label("Return to the homestead shrine to recover.", UISkin.TEXT_DIM, 12))
 		respawn_btn.text = "Return to the homestead"
 		ConnectWindow._button_style(respawn_btn)
 		content.add_child(respawn_btn)

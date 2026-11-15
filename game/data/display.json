@@ -1,0 +1,10 @@
+{
+  "_doc": "Client presentation scale. Values are in display points: on a 100% desktop one point is one screen pixel; on Retina / 200% displays one point is two. See docs/DISPLAY_SCALING.md.",
+  "world_zoom": {"default": 1.5, "min": 1.0, "max": 2.0, "step": 0.25},
+  "ui_scale": {
+    "choices": [1.0, 1.25, 1.5, 1.75, 2.0],
+    "reference_height": 720,
+    "min_layout_height": 540
+  },
+  "window": {"fraction_of_screen": 0.85, "min_size": [1280, 720]}
+}

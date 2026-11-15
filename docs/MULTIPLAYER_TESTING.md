@@ -112,7 +112,9 @@ send), plus `--no_predict` to turn off local movement prediction.
 |---|---|---|
 | Rules and invariants (single-player authority) | `godot --headless --path game --script res://tests/run_tests.gd` | 79 checks; the Slice 002 item and interaction contract |
 | **Multiplayer** | `godot --headless --path game --script res://tests/mp_tests.gd` | 93 checks: a real ENet server and two real clients in one process, directive tests 01–10 plus protocol garbage |
-| Single-player UI acceptance | `xvfb-run godot --rendering-driver opengl3 --path game -- --scenario=acceptance --shot_dir=/tmp/shots` | 43 checks through synthetic mouse/keyboard (Slice 002 regression) |
+| Single-player UI acceptance | `xvfb-run godot --rendering-driver opengl3 --path game -- --scenario=acceptance --shot_dir=/tmp/shots` | 45 checks through synthetic mouse/keyboard (Slice 002 regression, plus windows on screen at two interface sizes) |
+| Display scale | `xvfb-run -s "-screen 0 1920x1080x24" godot --rendering-driver opengl3 --path game -- --window=1920x1080 --scenario=display --shot_dir=/tmp/d` | 33 checks: wheel zoom, settings window, interface sizes, picking and drag-and-drop at 125% and 200%, resize, reset ([DISPLAY_SCALING.md](DISPLAY_SCALING.md)) |
+| Display preferences | `godot --headless --path game --script res://tests/display_tests.gd` | 17 checks: limits, steps, screen defaults, fit to window, save / load / reset |
 | **Three-process multiplayer UI run** | see below | Separate server, Alice and Bob processes; UI-driven door, pickup, equip, observed by the other client |
 
 Run `godot --headless --editor --quit --path game` once after adding scripts
@@ -120,10 +122,13 @@ with a `class_name`.
 
 ### Three-process run (what produced `docs/images/slice003/`)
 
+With the Slice 004 dev certificate present (`.dev/tls`), clients always
+connect with DTLS, so the server needs `--dev_tls`.
+
 ```bash
 G=godot
 cd game
-$G --headless --path . res://scenes/server.tscn -- --port=24690 --lag=60 --jitter=20 --loss=0.05 &
+$G --headless --path . res://scenes/server.tscn -- --dev_tls --port=24690 --lag=60 --jitter=20 --loss=0.05 &
 xvfb-run -a $G --rendering-driver opengl3 --path . -- --connect=127.0.0.1:24690 --name=Bob   --lag=60 --jitter=20 --loss=0.05 --scenario=mp_bob   --shot_dir=/tmp/mp/bob   --nohelp &
 sleep 3
 xvfb-run -a $G --rendering-driver opengl3 --path . -- --connect=127.0.0.1:24690 --name=Alice --lag=60 --jitter=20 --loss=0.05 --scenario=mp_alice --shot_dir=/tmp/mp/alice --nohelp

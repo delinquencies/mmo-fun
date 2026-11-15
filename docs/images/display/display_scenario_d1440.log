@@ -1,0 +1,43 @@
+window (2560, 1440), screen (2560, 1440) points, os scale 1.00, layout (1280, 720)
+PASS  D1 default world zoom 1.5x (camera 1.50)
+PASS  D1 interface size 200% for this screen (factor 2.00)
+PASS  D1 character is 108 screen px tall at the default zoom
+PASS  D1 world renders at the full window resolution ((2560, 1440) for window (2560, 1440))
+PASS  D1 all windows inside the view
+-- step: d1_default  (player 17.50, 10.60)
+PASS  D2 wheel up zooms in to 1.75x
+PASS  D2 zoom stops at 2.0x
+PASS  D2 world zoom leaves the interface size alone
+PASS  D2 hover picks the door at 2.0x
+-- step: d2_zoom_2  (player 17.50, 10.60)
+PASS  D2 zoom stops at 1.0x
+PASS  D2 hover picks the chest at 1.0x
+-- step: d2_zoom_1  (player 17.50, 10.60)
+PASS  D3 O opens the settings window
+PASS  D3 zoom + button (1.0 -> 1.5)
+PASS  D3 200% button sets the interface factor (2.00)
+PASS  D3 interface size leaves the world zoom alone
+PASS  D3 world still renders at full window resolution
+PASS  D3 all windows inside the view at 200%
+PASS  D3 backpack and equipment do not overlap at 200%
+-- step: d3_ui_200  (player 17.50, 10.60)
+PASS  D4 hover picks cottage_door at 200% interface
+PASS  D4 drag from the ground into backpack slot 3 lands exactly there at 200%
+PASS  D4 drag between backpack slots at 200%
+PASS  D4 drag between backpack slots at 125%
+PASS  D4 drop onto the ground lands under the cursor at 125%
+PASS  D4 hover picks the dropped apples at 125%
+PASS  D4 drag them back into backpack slot 1 at 125%
+-- step: d4_ui_125  (player 11.83, 17.21)
+PASS  D5 1280x720 window at 200%: layout keeps 540 points of height
+PASS  D5 all windows inside the 1280x720 window
+PASS  D5 world follows the window size
+PASS  D5 drop onto the ground lands where the cursor is ((12.72594, 17.61106) vs (12.72594, 17.61106))
+PASS  D5 hover picks the dropped apples after the resize
+-- step: d5_small_window  (player 11.83, 17.21)
+PASS  D6 Reset to default: zoom 1.5x, interface 200%
+PASS  D6 reset applied to the window
+-- step: d6_reset  (player 11.83, 17.21)
+PASS  D6 automated run did not write the player's preferences
+
+scenario display: 33 checks, 0 failures
