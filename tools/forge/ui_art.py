@@ -62,25 +62,54 @@ def rivet(rgb, cx, cy, r=2.6):
     rgb[(d > r) & (d <= r + 1)] = rgb[(d > r) & (d <= r + 1)] * 0.5
 
 
+def corner_plate(rgb, cx, cy, sx, sy, arm=11, w=4):
+    """Worn brass L-bracket hugging a panel corner, inside the 9-slice margin.
+    (cx, cy) is the corner pixel; sx, sy = +1/-1 point into the panel."""
+    h_, w_ = rgb.shape[:2]
+    x, y = grid(w_, h_)
+    dx, dy = (x - cx) * sx, (y - cy) * sy
+    m = (dx >= 0) & (dy >= 0) & (dx < arm) & (dy < arm) & ((dx < w) | (dy < w))
+    m &= ~((dx > arm - 3) & (dy > w - 2) & (dx + dy > arm + 1))      # nicked tips
+    m &= ~((dy > arm - 3) & (dx > w - 2) & (dx + dy > arm + 1))
+    shade = np.clip(0.55 - (dx * sx + dy * sy) / (arm * 2.2) + (value2p(x / 3.0, y / 3.0, 64, 64, seed=41) - 0.5) * 0.5, 0, 1)
+    rgb[m] = ramp(shade[m], ["#4e3812", "#8a6822", "#c09a3e", "#ecd27c"])
+    # dark seat line where the plate meets the leather
+    inner = (dx >= 0) & (dy >= 0) & (dx < arm + 1) & (dy < arm + 1) & ((dx < w + 1) | (dy < w + 1)) & ~m
+    rgb[inner] = rgb[inner] * 0.5
+    rivet(rgb, cx + sx * 2.5, cy + sy * 2.5, 1.4)
+
+
 def leather_panel(size=64):
+    """Tooled leather: warm hide, pressed inner line, waxed stitching and brass
+    corner plates. 9-slice margin 14 px (unchanged)."""
     n = periodic_noise(size, size, 4, 3)
     grain = periodic_noise(size, size, 32, 4, 2)
-    rgb = ramp(np.clip(n * 0.9 + grain * 0.35 - 0.1, 0, 1), ["#2c1a0e", "#3e2614", "#52331c", "#5e3d22"])
+    pores = periodic_noise(size, size, 64, 5, 1)
+    rgb = ramp(np.clip(n * 0.85 + grain * 0.35 + (pores - 0.5) * 0.25 - 0.08, 0, 1),
+               ["#2e1b0e", "#432a15", "#59381d", "#6a4526", "#77502e"])
     x, y = grid(size, size)
-    # creases
     crease = (np.abs(np.sin((x * 0.7 + y * 0.3) * 0.5 + n * 6)) < 0.06)
     rgb[crease] *= 0.8
+    # darker toward the frame so the middle reads as slightly padded
+    edge = np.minimum(np.minimum(x, size - 1 - x), np.minimum(y, size - 1 - y))
+    rgb *= (0.78 + 0.22 * np.clip(edge / 9.0, 0, 1))[..., None]
     border(rgb, 0, _c("#120a05"))
-    bevel(rgb, 1, _c("#7a5634"), _c("#1e1208"))
+    bevel(rgb, 1, _c("#8a6238"), _c("#1e1208"))
     border(rgb, 2, _c("#2a1a0c"))
+    # tooled line: a pressed groove with a lit lower edge
+    border(rgb, 4, _c("#1c1008"))
+    for i in range(5, size - 5):
+        rgb[5, i] = rgb[5, i] * 0.6 + _c("#9a7244") * 0.4 if i % 1 == 0 else rgb[5, i]
+        rgb[i, 5] = rgb[i, 5] * 0.6 + _c("#9a7244") * 0.4
     # stitching
-    for i in range(6, size - 6):
-        on = (i // 2) % 2 == 0
-        if on:
-            for (a, b) in ((i, 6), (i, size - 7), (6, i), (size - 7, i)):
-                rgb[b, a] = _c("#c8a46a")
-    for cx, cy in ((7, 7), (size - 8, 7), (7, size - 8), (size - 8, size - 8)):
-        rivet(rgb, cx, cy)
+    for i in range(8, size - 8):
+        if (i // 2) % 2 == 0:
+            for (a, b) in ((i, 8), (i, size - 9), (8, i), (size - 9, i)):
+                rgb[b, a] = _c("#d2b077")
+                if b + 1 < size and a + 1 < size:
+                    rgb[b + 1, a] = rgb[b + 1, a] * 0.6
+    for cx, cy, sx, sy in ((1, 1, 1, 1), (size - 2, 1, -1, 1), (1, size - 2, 1, -1), (size - 2, size - 2, -1, -1)):
+        corner_plate(rgb, cx, cy, sx, sy)
     return to_img(rgb)
 
 
@@ -97,14 +126,22 @@ def parchment(size=48):
 
 
 def timber_bar(w=64, h=20):
+    """Carved timber rail: long grain, a chiselled groove with a gilt inlay
+    line, brass end caps. 9-slice margin 7 px (unchanged)."""
     x, y = grid(w, h)
-    g = value2p(x / w * 2, y / h * 10, 2, 10, seed=5)
+    g = value2p(x / w * 2, y / h * 12, 2, 12, seed=5)
     n = periodic_noise(w, h, 6, 6)
-    rgb = ramp(np.clip(g * 0.6 + n * 0.5, 0, 1), ["#2a1a0e", "#4a301a", "#644226", "#7a5434"])
+    rgb = ramp(np.clip(g * 0.6 + n * 0.5, 0, 1), ["#2a1a0e", "#4a301a", "#684428", "#825a36", "#946a42"])
+    rgb *= (1.08 - 0.22 * (y / h))[..., None]             # rounded: lit top, shaded belly
     border(rgb, 0, _c("#120a05"))
-    bevel(rgb, 1, _c("#8a6440"), _c("#1a1006"))
-    for cx in (5, w - 6):
-        rivet(rgb, cx, h / 2 - 0.5, 2.0)
+    bevel(rgb, 1, _c("#a47a4c"), _c("#1a1006"))
+    rgb[3, 8:w - 8] = rgb[3, 8:w - 8] * 0.55               # chiselled groove
+    rgb[4, 8:w - 8] = _c("#c9a24e")                        # gilt inlay
+    rgb[h - 4, 8:w - 8] = rgb[h - 4, 8:w - 8] * 0.6
+    for x0 in (2, w - 7):                                  # brass end caps
+        cap = ramp(np.clip(0.75 - y[2:h - 2, x0:x0 + 5] / h * 0.7, 0, 1), ["#4e3812", "#8a6822", "#c09a3e", "#ecd27c"])
+        rgb[2:h - 2, x0:x0 + 5] = cap
+        rgb[2:h - 2, x0 + (5 if x0 < w / 2 else -1)] *= 0.5
     return to_img(rgb)
 
 

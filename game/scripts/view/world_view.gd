@@ -37,7 +37,7 @@ func setup(world_sim: WorldSim, asset_set: AssetSet) -> void:
 		gl.z_index = -20
 		add_child(gl)
 	shadows.z_index = -10
-	shadows.self_modulate = Color(0.02, 0.06, 0.1, 0.42)
+	shadows.self_modulate = Color(0.03, 0.07, 0.06, 0.3)
 	add_child(shadows)
 	entities.y_sort_enabled = true
 	add_child(entities)

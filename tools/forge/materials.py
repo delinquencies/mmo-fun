@@ -67,15 +67,17 @@ def noisy_ramp(cols, freq=10.0, seed=0, bump_s=0.15, fine=0.0):
 
 
 def wood_grain(cols, axis=2, freq=6.0, seed=0, bump_s=0.12):
-    """Grain streaks running along `axis`."""
+    """Grain streaks running along `axis`: long fibres, occasional dark seams
+    and checks, and slow weathering variation along the board."""
     def f(p, n):
-        q = p.copy()
-        scale = np.array([22.0, 22.0, 22.0])
-        scale[axis] = 2.0
-        g = value3(q[:, 0] * scale[0], q[:, 1] * scale[1], q[:, 2] * scale[2], seed)
+        scale = np.array([26.0, 26.0, 26.0])
+        scale[axis] = 1.6
+        g = value3(p[:, 0] * scale[0], p[:, 1] * scale[1], p[:, 2] * scale[2], seed)
+        fine = value3(p[:, 0] * scale[0] * 2.3, p[:, 1] * scale[1] * 2.3, p[:, 2] * scale[2] * 2.3, seed + 11)
         g2 = fbm3(p, freq, 2, seed + 3)
-        t = np.clip(g * 0.6 + g2 * 0.5 - 0.05, 0, 1)
-        return ramp(t, cols)
+        t = np.clip(g * 0.55 + fine * 0.2 + g2 * 0.5 - 0.1, 0, 1)
+        c = ramp(t, cols)
+        return np.where((g < 0.16)[:, None], c * 0.62, c)      # dark checks along the grain
     return Material(f, bump_s, 25.0, seed=seed)
 
 

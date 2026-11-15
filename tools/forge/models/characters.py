@@ -23,14 +23,22 @@ def _cloth(cols, freq=14.0, seed=0, b=0.18):
     return Material(f, b, freq * 2, seed=seed)
 
 
-SKIN = _cloth(["#6e432a", "#8a5a3c", "#a06c48"], 8, 1, 0.05)
-HAIR = Material(lambda p, n: ramp(value3(p[:, 0] * 55, p[:, 1] * 55, p[:, 2] * 55, 4) * 0.8 + fbm3(p, 10, 2, 2) * 0.3,
-                                  ["#0e0907", "#1e140e", "#33231a", "#4a3324"]), 0.7, 40.0, seed=3)
-TUNIC = _cloth(["#3c4a1e", "#56682c", "#6c7f38"], 12, 5)
-LEATHER = _cloth(["#3a2414", "#5e3b20", "#7a5030"], 16, 6, 0.2)
-PANTS = _cloth(["#33241a", "#4a3424", "#5c4430"], 12, 7)
-BOOTS = _cloth(["#24170e", "#3a2616", "#4e3420"], 12, 8)
-CLOAK = _cloth(["#2a3416", "#3e4a22", "#52602e"], 9, 9, 0.25)
+# Art pass 1: values are keyed for readability on green ground. Each piece of
+# gear sits in its own value/hue band (cream linen, khaki-olive tunic, tan
+# leather, umber trousers, russet cloak) so the figure separates into parts at
+# 72 px instead of merging into one dark olive shape.
+SKIN = _cloth(["#8a5636", "#b07a50", "#cf9a6a"], 8, 1, 0.05)
+HAIR = Material(lambda p, n: ramp(value3(p[:, 0] * 46, p[:, 1] * 46, p[:, 2] * 46, 4) * 0.75 + fbm3(p, 9, 2, 2) * 0.3
+                                  + np.clip(n[:, 2], 0, 1) * 0.22,
+                                  ["#0c0706", "#170e0a", "#261810", "#3a2618", "#553a26"]), 0.7, 36.0, seed=3)
+TUNIC = _cloth(["#5a6230", "#7c8742", "#9aa456"], 12, 5)
+SHIRT = _cloth(["#b9a983", "#d6c9a4", "#ece2c4"], 12, 15, 0.12)
+LEATHER = _cloth(["#6a4222", "#96642f", "#bb8748"], 16, 6, 0.2)
+PANTS = _cloth(["#3e2c1e", "#57402c", "#6e543a"], 12, 7)
+BOOTS = _cloth(["#2c1c10", "#4a301c", "#624428"], 12, 8)
+BOOT_CUFF = _cloth(["#7a5630", "#a47a48", "#c29a62"], 14, 18, 0.15)
+CLOAK = _cloth(["#4e2a1c", "#74402a", "#955a3a"], 9, 9, 0.25)
+CLOAK_TRIM = _cloth(["#a8843c", "#d0ac58", "#ecd080"], 14, 19, 0.1)
 BRASS = Material(lambda p, n: ramp(fbm3(p, 30, 2, 1), ["#6a4a18", "#b08a3a", "#e0c070"]), 0.1, 30)
 STEEL = Material(lambda p, n: ramp(fbm3(p, 20, 2, 2), ["#9fb4d0", "#d6e4f4", "#ffffff"]),
                  emissive=lambda p, n: np.tile(_c("#3c6cff"), (p.shape[0], 1)) * 0.45)
@@ -43,11 +51,11 @@ def _rot_pitch(v, a):
     return np.array([x * np.cos(a) + z * np.sin(a), v[1], -x * np.sin(a) + z * np.cos(a)])
 
 
-BANDIT = {
-    "cloth": _cloth(["#2e2620", "#433930", "#58493c"], 12, 21),
-    "leather": _cloth(["#1e1610", "#33261a", "#4a3826"], 16, 22, 0.2),
-    "pants": _cloth(["#24201c", "#38322a", "#4a4236"], 12, 23),
-    "hood": _cloth(["#3a1e16", "#5a2e20", "#6e3a28"], 10, 24, 0.25),
+BANDIT = {   # dull greys and a rust hood: reads as "not the player" at a glance
+    "cloth": _cloth(["#463c34", "#63564a", "#7e6e5e"], 12, 21),
+    "leather": _cloth(["#2c2018", "#493626", "#644c36"], 16, 22, 0.2),
+    "pants": _cloth(["#34302a", "#4e483e", "#655d50"], 12, 23),
+    "hood": _cloth(["#5a2618", "#863a24", "#a85030"], 10, 24, 0.25),
     "skin": _cloth(["#8a6448", "#a67a58", "#bc8e68"], 8, 25, 0.05),
 }
 
@@ -75,7 +83,7 @@ def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0, weapon="iron_sword", swing
         toe[2] = max(toe[2], 0.035)
         s.capsule(hip, knee, 0.085, PANTS_, rb=0.07)
         s.capsule(knee, ankle, 0.075, BOOTS, rb=0.065)
-        s.capsule(knee + np.array([0.0, 0, 0.02]), knee + np.array([0.02, 0, -0.06]), 0.085, BOOTS)
+        s.capsule(knee + np.array([0.0, 0, 0.02]), knee + np.array([0.02, 0, -0.06]), 0.088, BOOTS if bandit else BOOT_CUFF)
         s.capsule(ankle, toe, 0.06, BOOTS, rb=0.05)
 
     lift_l = 0.7 * max(0.0, -np.cos(phase)) * walk
@@ -117,7 +125,10 @@ def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0, weapon="iron_sword", swing
         s.capsule(head + np.array([-0.1, 0, -0.08]), chest + np.array([-0.14, 0, 0.12]), 0.07, BANDIT["hood"])
     else:
         for i, (x, y, z, r) in enumerate(hair_pts):
-            s.sphere(head + np.array([x, y, z]), r, HAIR, displace=(0.028, 34.0, 50 + i))
+            # fuller at the back and sides; kept off the face so it stays visible
+            k = 1.0 if x > 0 else 1.14
+            s.sphere(head + np.array([x * k - (0.0 if x > 0 else 0.01), y * 1.12, z * 1.06]), r * (0.95 if x > 0 else 1.1),
+                     HAIR, displace=(0.03, 30.0, 50 + i))
     # cloak: hangs from shoulders behind the back, swings with gait
     sway = 0.08 * walk * (0.6 + 0.4 * np.cos(2 * phase))
     top = chest + np.array([-0.12, 0, 0.13])
@@ -128,8 +139,12 @@ def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0, weapon="iron_sword", swing
     mid = (top + bot) / 2
     L = np.linalg.norm(cl_dir)
     if not bandit:
-        s.box((0, 0, 0), (0.035, 0.23, L / 2), CLOAK, round_=0.03, T=mid, R=rot_axis_mat((0, 1, 0), -ang))
-        s.capsule(top + np.array([0.04, 0.2, 0]), top + np.array([0.04, -0.2, 0]), 0.055, CLOAK)
+        Rc = rot_axis_mat((0, 1, 0), -ang)
+        s.box((0, 0, 0), (0.035, 0.215, L / 2), CLOAK, round_=0.035, T=mid, R=Rc)
+        # pale hem band so the cloak edge reads from behind
+        s.box((0, 0, -L / 2 + 0.035), (0.04, 0.22, 0.028), CLOAK_TRIM, round_=0.02, T=mid, R=Rc)
+        s.capsule(top + np.array([0.04, 0.2, 0]), top + np.array([0.04, -0.2, 0]), 0.058, CLOAK)
+        s.sphere(chest + np.array([0.13, 0.0, 0.15]), 0.03, BRASS)   # cloak clasp
 
     # arms. swing in [0,1] = attack progress (windup until 0.45, strike, recover)
     bow = weapon == "hunting_bow"
@@ -140,7 +155,7 @@ def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0, weapon="iron_sword", swing
         elbow = sh + up
         fore = _rot_pitch(np.array([0, 0, -0.26]), -pitch - bend)
         hand = elbow + fore
-        s.capsule(sh, elbow, 0.062, TUNIC_, rb=0.055)
+        s.capsule(sh, elbow, 0.062, TUNIC_ if bandit else SHIRT, rb=0.055)
         s.capsule(elbow, hand, 0.052, LEATHER_, rb=0.045)
         s.sphere(hand, 0.045, SKIN_)
         return hand

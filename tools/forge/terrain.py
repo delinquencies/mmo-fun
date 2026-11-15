@@ -32,43 +32,52 @@ def _tile_coords(tile_w, a, b):
     return u + a, v + b, inside
 
 
-def _blades(u, v, seed, f_long=3, f_short=26):
-    # streaks aligned with screen-vertical (world (1,1)) so grass reads as upright blades
-    P = PERIOD
-    A = (u + v)
-    B = (u - v)
-    return value2p(A * f_long, B * f_short, P * f_long, P * f_short * 2, seed=seed)
-
-
 def grass_rgb(u, v):
+    """Mottled meadow: broad light/dark drifts, clumps a hand-span across with
+    dark roots between them, short blade flecks, scattered dry and bare
+    patches and the odd tiny wildflower. No long vertical streaks."""
     P = PERIOD
-    m1 = fbm2p(u, v, 1, P, 3, seed=1)
-    m2 = fbm2p(u, v, 4, P, 2, seed=2)
-    bl = _blades(u, v, 3)
-    bl2 = _blades(u, v, 4, 5, 40)
-    t = 0.12 + (m1 - 0.5) * 0.9 + (m2 - 0.5) * 0.45 + (bl - 0.5) * 0.55 + (bl2 - 0.5) * 0.4
-    c = ramp(np.clip(t + 0.25, 0, 1), ["#1f3910", "#2f5216", "#40691d", "#557f26", "#6e9530", "#8eaa3c"])
-    # dark gaps between clumps
-    gap = (bl2 < 0.22)
-    c[gap] *= 0.7
-    # occasional bare earth
-    earth = np.clip((0.3 - fbm2p(u, v, 2, P, 2, seed=8)) * 6, 0, 1)
-    ec = ramp(fbm2p(u, v, 8, P, 2, seed=9), ["#4a3a22", "#6b5434"])
-    c = c * (1 - earth[..., None] * 0.7) + ec * earth[..., None] * 0.7
+    drift = fbm2p(u, v, 1, P, 3, seed=1)                  # broad colour drifts
+    patch = fbm2p(u, v, 3, P, 2, seed=2)
+    f1, f2, cid = cells2p(u, v, 9, P, seed=5)              # clumps
+    g1, g2, gid = cells2p(u, v, 22, P, seed=6)             # blade tufts
+    A, B = u + v, u - v
+    fleck = value2p(A * 14, B * 34, P * 14, P * 34, seed=3)   # short upright blade flecks
+    t = 0.46 + (drift - 0.5) * 0.26 + (patch - 0.5) * 0.42 + (cid - 0.5) * 0.3 \
+        + (gid - 0.5) * 0.2 + (fleck - 0.5) * 0.34
+    t = t - np.clip(0.14 - (f2 - f1), 0, 1) * 1.1           # dark roots between clumps
+    t = t + np.clip(0.3 - g1, 0, 1) * 0.5                   # lit tuft tips
+    c = ramp(np.clip(t, 0, 1), ["#243a12", "#33501a", "#446620", "#567a26", "#6a8c2e", "#809c38", "#9aae46"])
+    # dry, yellowed drifts
+    dry = np.clip((fbm2p(u, v, 2, P, 2, seed=7) - 0.6) * 5, 0, 1)[..., None]
+    c = c * (1 - dry * 0.45) + c * np.array([1.22, 1.08, 0.62]) * dry * 0.45
+    # bare earth showing through
+    earth = np.clip((0.27 - fbm2p(u, v, 2, P, 3, seed=8)) * 7, 0, 1)[..., None]
+    ec = ramp(fbm2p(u, v, 9, P, 2, seed=9), ["#4a3a22", "#6b5434", "#7e6540"])
+    c = c * (1 - earth * 0.8) + ec * earth * 0.8
+    # tiny wildflowers: a few cells of the finest grid get a petal dot
+    w1, w2, wid = cells2p(u, v, 30, P, seed=10)
+    dot = (w1 < 0.2) & (wid > 0.972) & (earth[..., 0] < 0.2)
+    pet = np.where((wid > 0.99)[..., None], _c("#e8dcec"), np.where((wid > 0.981)[..., None], _c("#e6cf52"), _c("#c9a0d8")))
+    c = np.where(dot[..., None], pet, c)
     return c
 
 
 def dirt_rgb(u, v):
+    """Trodden earth path: warm tan with fine grit, wheel-worn lighter middle
+    tones, small stones with a dark rim."""
     P = PERIOD
-    m = fbm2p(u, v, 3, P, 3, seed=11)
-    f1, f2, cid = cells2p(u, v, 7, P, seed=12)
-    c = ramp(np.clip(0.2 + (m - 0.5) * 1.1 + value2p(u * 32, v * 32, P * 32, P * 32, seed=13) * 0.35, 0, 1),
-             ["#4c3622", "#654a2e", "#7d5e3b", "#94744b", "#a8875a"])
-    pebble = (f1 < 0.2) & (cid > 0.78)
-    pc = ramp(cid, ["#5e5242", "#7a6c58", "#8e806a"])
-    c = np.where(pebble[..., None], pc, c)
-    rim = (f1 >= 0.2) & (f1 < 0.27) & (cid > 0.78)
-    c[rim] *= 0.62
+    m = fbm2p(u, v, 2, P, 3, seed=11)
+    grit = value2p(u * 40, v * 40, P * 40, P * 40, seed=13)
+    grit2 = value2p(u * 90, v * 90, P * 90, P * 90, seed=14)
+    f1, f2, cid = cells2p(u, v, 11, P, seed=12)
+    c = ramp(np.clip(0.36 + (m - 0.5) * 0.7 + (grit - 0.5) * 0.3 + (grit2 - 0.5) * 0.22, 0, 1),
+             ["#5a4128", "#735534", "#8a6a42", "#a08052", "#b39464", "#c2a676"])
+    pebble = (f1 < 0.17) & (cid > 0.7)
+    pc = ramp(cid, ["#6a6052", "#8a8070", "#a69c8a"])
+    c = np.where(pebble[..., None], pc * (0.85 + 0.3 * (1 - f1[..., None] / 0.17) * 0.5), c)
+    rim = (f1 >= 0.17) & (f1 < 0.25) & (cid > 0.7)
+    c[rim] *= 0.66
     return c
 
 
@@ -117,9 +126,11 @@ def overlay_tile(tile_w, a, b, mask, kind):
     u, v, inside = _tile_coords(tile_w, a, b)
     if kind == "dirt":
         f = _edge_field(u, v, mask, a, b, 0.42, 31)
+        # ragged, tufted edge: grass blades bite into the path
+        f = f + (value2p((u + v) * 16, (u - v) * 30, PERIOD * 16, PERIOD * 30, seed=33) - 0.5) * 0.09
         rgb = dirt_rgb(u, v)
-        rim = (f > 0.5) & (f < 0.56)
-        rgb[rim] *= 0.72
+        rim = (f > 0.5) & (f < 0.58)
+        rgb[rim] *= 0.7
         cov = (f > 0.5).astype(float)
     else:
         f = _edge_field(u, v, mask, a, b, 0.36, 41)

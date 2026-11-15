@@ -19,6 +19,11 @@ TOWARD_CAM = np.array([COS30 / SQ2, COS30 / SQ2, SIN30])
 # unit vector pointing toward the sun: from screen-left, slightly toward the viewer
 SUN = np.array([0.32, 0.95, 1.25])
 SUN = SUN / np.linalg.norm(SUN)
+# Ground shadows are cast from a steeper sun than the one used for shading, so
+# they sit under their object as a compact pool (as in the approved reference)
+# instead of stretching a tile and a half across the grass.
+SHADOW_SUN = np.array([0.2, 0.6, 1.9])
+SHADOW_SUN = SHADOW_SUN / np.linalg.norm(SHADOW_SUN)
 SUN_COL = np.array([1.08, 1.0, 0.86])
 SKY_COL = np.array([0.50, 0.56, 0.66])
 BOUNCE_COL = np.array([0.36, 0.34, 0.24])
@@ -138,13 +143,13 @@ def render(scene, tile_w, ss=3, canvas=None, outline=True, shadow=True,
 
     gshadow = np.zeros(npx)
     if shadow:
-        t1 = (bmin[None, :] - p0) / SUN[None, :]
-        t2 = (bmax[None, :] - p0) / SUN[None, :]
+        t1 = (bmin[None, :] - p0) / SHADOW_SUN[None, :]
+        t2 = (bmax[None, :] - p0) / SHADOW_SUN[None, :]
         lo_ = np.max(np.minimum(t1, t2), axis=1)
         hi_ = np.min(np.maximum(t1, t2), axis=1)
         sc = np.nonzero(hi_ > np.maximum(lo_, 0.0))[0]
         if sc.size:
-            gshadow[sc] = sdf.k_ground_shadow(recs, np.ascontiguousarray(p0[sc]), SUN, 8.0, 14.0)
+            gshadow[sc] = sdf.k_ground_shadow(recs, np.ascontiguousarray(p0[sc]), SHADOW_SUN, 8.0, 14.0)
 
     def down(a):
         return a.reshape(ch, ss, cw, ss, *a.shape[2:]).mean(axis=(1, 3))

@@ -14,33 +14,38 @@ RIDGE_H = 4.05
 STONE_TOP = 1.2
 
 
-def masonry(p, n, row_h=0.19, seed=11):
+def masonry(p, n, row_h=0.235, seed=11):
     """Irregular coursed stonework on vertical faces. Returns colour (N,3)."""
     use_y = np.abs(n[:, 0]) > np.abs(n[:, 1])
     u = np.where(use_y, p[:, 1], p[:, 0])
     v = p[:, 2]
     row = np.floor(v / row_h)
     off = hash01(row, seed=seed) * 2.0
-    blen = 0.2 + hash01(row, seed=seed + 1) * 0.3
+    row_h = row_h  # courses vary in height a little via the jagged joints below
+    blen = 0.26 + hash01(row, seed=seed + 1) * 0.34
     cu = (u + off) / blen
     col = np.floor(cu)
     fu = cu - col
     fv = v / row_h - row
-    jag = (fbm3(p, 24, 2, seed + 9) - 0.5) * 0.25
+    jag = (fbm3(p, 17, 2, seed + 9) - 0.5) * 0.34
     fu = np.clip(fu + jag, 0, 1)
     fv = np.clip(fv + jag * 0.8, 0, 1)
     cid = hash01(row, col, seed=seed + 2)
     warm = hash01(row, col, seed=seed + 3)
-    base = ramp(0.25 + cid * 0.6 + (fbm3(p, 9, 2, seed) - 0.5) * 0.5,
-                ["#56534f", "#77736c", "#8f8a80", "#a9a397"])
-    tint = np.where(warm[:, None] > 0.6, np.array([1.05, 0.98, 0.9]), np.array([0.95, 0.98, 1.04]))
+    base = ramp(0.18 + cid * 0.7 + (fbm3(p, 9, 2, seed) - 0.5) * 0.45
+                + (value3(p[:, 0] * 44, p[:, 1] * 44, p[:, 2] * 44, seed) - 0.5) * 0.18,
+                ["#55534f", "#75726b", "#918c82", "#aca69a", "#c2bcae"])
+    tint = np.where(warm[:, None] > 0.66, np.array([1.06, 0.99, 0.89]),
+                    np.where(warm[:, None] < 0.3, np.array([0.95, 0.99, 1.05]), np.array([1.0, 1.0, 0.98])))
     c = base * tint
     # bevel shading + mortar joints
     eu = np.minimum(fu, 1 - fu) * blen[:]
     ev = np.minimum(fv, 1 - fv) * row_h
     e = np.minimum(eu, ev)
-    c = c * np.clip(0.55 + e * 14.0, 0.55, 1.0)[:, None]
-    mortar = e < 0.018
+    c = c * np.clip(0.5 + e * 13.0, 0.5, 1.0)[:, None]
+    lit_edge = (fv > 0.8) & (fv < 0.93) & (eu > 0.03)          # sun catches each stone's top edge
+    c = np.where(lit_edge[:, None], c * 1.16, c)
+    mortar = e < 0.02
     c[mortar] = _c("#2a2622") * (0.9 + 0.2 * cid[mortar, None])
     return c
 
@@ -49,8 +54,8 @@ def timber_plaster(p, n, posts=0.75):
     use_y = np.abs(n[:, 0]) > np.abs(n[:, 1])
     u = np.where(use_y, p[:, 1], p[:, 0])
     z = p[:, 2]
-    plaster = ramp(fbm3(p, 7, 3, 21), ["#a89a7c", "#bfb293", "#cfc4a7"])
-    wood = wood_grain(["#2c1c10", "#45301d", "#5c4129"], axis=2, seed=5).albedo(p, n)
+    plaster = ramp(fbm3(p, 7, 3, 21), ["#b3a37f", "#cdbf9c", "#e0d6b6"])
+    wood = wood_grain(["#2a190e", "#472e1a", "#644528", "#7a5836"], axis=2, seed=5).albedo(p, n)
     beam = (np.abs(z - (STONE_TOP + 0.05)) < 0.07) | (np.abs(z - WALL_H + 0.06) < 0.07)
     pu = np.mod(u + 0.06, posts)
     beam |= pu < 0.12
@@ -75,8 +80,8 @@ def wall_material():
 
 def gable_material():
     def f(p, n):
-        plaster = ramp(fbm3(p, 7, 3, 21), ["#a89a7c", "#bfb293", "#cfc4a7"])
-        wood = wood_grain(["#2c1c10", "#45301d", "#5c4129"], axis=2, seed=5).albedo(p, n)
+        plaster = ramp(fbm3(p, 7, 3, 21), ["#b3a37f", "#cdbf9c", "#e0d6b6"])
+        wood = wood_grain(["#2a190e", "#472e1a", "#644528", "#7a5836"], axis=2, seed=5).albedo(p, n)
         z = p[:, 2]
         xc = FW / 2
         dx = p[:, 0] - xc
@@ -89,24 +94,31 @@ def gable_material():
 
 
 def roof_material(seed=31):
+    """Clay tiles in clear courses: each tile has its own colour, a dark gap to
+    its neighbours, a shadow under the course above and a lit lower lip."""
     def f(p, n):
         side = np.sign(p[:, 0] - FW / 2)
         dist = np.abs(p[:, 0] - FW / 2)
-        row = np.floor(dist / 0.205)
-        tw = 0.24
+        rw = 0.205
+        row = np.floor(dist / rw)
+        fr = dist / rw - row                     # 0 at the upper edge of the course, 1 at its lip
+        tw = 0.3
         cu = (p[:, 1] + (row % 2) * tw * 0.5) / tw
         col = np.floor(cu)
         fu = cu - col
         h = hash01(row, col, side, seed=seed)
-        c = ramp(0.2 + 0.65 * h + (fbm3(p, 6, 2, seed) - 0.5) * 0.4,
-                 ["#4a2618", "#663523", "#7a442c", "#8c5436", "#9c6442"])
+        c = ramp(0.12 + 0.72 * h + (fbm3(p, 7, 2, seed) - 0.5) * 0.3,
+                 ["#4e261a", "#6c3524", "#84432c", "#985236", "#a86040", "#b5704c"])
+        c = c * (0.72 + 0.4 * np.clip(fr, 0, 1))[:, None]          # shaded under the course above
+        c = np.where((fr > 0.82)[:, None], c * 1.12, c)             # lit lip
         edge = np.minimum(fu, 1 - fu)
-        c = c * np.where(edge[:, None] < 0.06, 0.45, 1.0)
-        # moss/age streaks
-        moss = np.clip((fbm3(p, 3, 2, seed + 7) - 0.62) * 3.0, 0, 1)
-        c = c * (1 - moss[:, None] * 0.35) + _c("#5c5a2c")[None, :] * moss[:, None] * 0.35
+        c = c * np.where(edge[:, None] < 0.07, 0.5, 1.0)
+        odd = hash01(row, col, side, seed=seed + 5)
+        c = np.where((odd > 0.93)[:, None], c * 0.72, c)            # the odd weathered tile
+        moss = np.clip((fbm3(p, 2.6, 2, seed + 7) - 0.66) * 4.0, 0, 1) * np.clip(1.2 - dist, 0, 1)
+        c = c * (1 - moss[:, None] * 0.45) + _c("#66702e")[None, :] * moss[:, None] * 0.45
         return c
-    return Material(f, 0.18, 24.0, seed=seed)
+    return Material(f, 0.16, 24.0, seed=seed)
 
 
 def window_material():
@@ -139,7 +151,7 @@ def door_material():
     return Material(f, 0.1, 30.0)
 
 
-TIMBER = wood_grain(["#2c1c10", "#45301d", "#5c4129"], axis=0, seed=9, bump_s=0.15)
+TIMBER = wood_grain(["#2a190e", "#472e1a", "#644528", "#7a5836"], axis=0, seed=9, bump_s=0.15)
 STONE_BLOCK = Material(lambda p, n: masonry(p, n, row_h=0.17, seed=4) * 1.05, 0.15, 30.0)
 
 

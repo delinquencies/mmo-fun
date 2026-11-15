@@ -112,3 +112,29 @@ def cells2p(x, y, freq, period, seed=0):
             cid = np.where(closer, hash01(cx, cy, seed=seed + 2), cid)
             f1 = np.where(closer, d, f1)
     return f1, f2, cid
+
+
+def cells3(p, freq, seed=0):
+    """Jittered-grid 3D Voronoi. p: (N,3). Returns (F1, F2, cell_hash01, dz)
+    where dz is the height of the sample above its cell centre (in cells)."""
+    g = p * freq
+    gi = np.floor(g).astype(np.int64)
+    n = p.shape[0]
+    f1 = np.full(n, 9.0)
+    f2 = np.full(n, 9.0)
+    cid = np.zeros(n)
+    dz = np.zeros(n)
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            for dzc in (-1, 0, 1):
+                cx, cy, cz = gi[:, 0] + dx, gi[:, 1] + dy, gi[:, 2] + dzc
+                px_ = cx + 0.15 + 0.7 * hash01(cx, cy, cz, seed=seed)
+                py_ = cy + 0.15 + 0.7 * hash01(cx, cy, cz, seed=seed + 1)
+                pz_ = cz + 0.15 + 0.7 * hash01(cx, cy, cz, seed=seed + 2)
+                d = np.sqrt((g[:, 0] - px_) ** 2 + (g[:, 1] - py_) ** 2 + (g[:, 2] - pz_) ** 2)
+                closer = d < f1
+                f2 = np.where(closer, f1, np.minimum(f2, d))
+                cid = np.where(closer, hash01(cx, cy, cz, seed=seed + 3), cid)
+                dz = np.where(closer, g[:, 2] - pz_, dz)
+                f1 = np.where(closer, d, f1)
+    return f1, f2, cid, dz

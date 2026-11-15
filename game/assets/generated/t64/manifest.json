@@ -13,12 +13,12 @@
    "file": "tree_oak_a.png",
    "shadow": "tree_oak_a_shadow.png",
    "size": [
-    268,
-    262
+    290,
+    273
    ],
    "pivot": [
-    110,
-    199
+    121,
+    201
    ],
    "anchors": {}
   },
@@ -26,12 +26,12 @@
    "file": "tree_oak_b.png",
    "shadow": "tree_oak_b_shadow.png",
    "size": [
-    255,
+    264,
     249
    ],
    "pivot": [
-    102,
-    190
+    110,
+    183
    ],
    "anchors": {}
   },
@@ -39,12 +39,12 @@
    "file": "tree_oak_c.png",
    "shadow": "tree_oak_c_shadow.png",
    "size": [
-    312,
-    300
+    307,
+    294
    ],
    "pivot": [
     127,
-    227
+    219
    ],
    "anchors": {}
   },
@@ -52,12 +52,12 @@
    "file": "tree_young.png",
    "shadow": "tree_young_shadow.png",
    "size": [
-    178,
-    182
+    170,
+    178
    ],
    "pivot": [
-    73,
-    137
+    69,
+    132
    ],
    "anchors": {}
   },
@@ -104,11 +104,11 @@
    "file": "rock_large.png",
    "shadow": "rock_large_shadow.png",
    "size": [
-    95,
-    75
+    97,
+    76
    ],
    "pivot": [
-    43,
+    44,
     41
    ],
    "anchors": {}
@@ -117,12 +117,12 @@
    "file": "rock_medium.png",
    "shadow": "rock_medium_shadow.png",
    "size": [
-    69,
-    60
+    70,
+    61
    ],
    "pivot": [
-    33,
-    35
+    34,
+    36
    ],
    "anchors": {}
   },
@@ -130,12 +130,12 @@
    "file": "rock_small.png",
    "shadow": "rock_small_shadow.png",
    "size": [
-    45,
-    42
+    47,
+    43
    ],
    "pivot": [
-    22,
-    24
+    23,
+    25
    ],
    "anchors": {}
   },
@@ -3269,7 +3269,7 @@
      ]
     }
    },
-   "content_height_px": 72,
+   "content_height_px": 73,
    "overlays": {
     "iron_sword": {
      "idle": {

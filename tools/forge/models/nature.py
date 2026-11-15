@@ -3,62 +3,86 @@ import numpy as np
 
 from sdf import Scene, rot_axis_mat, rot_z_mat
 from materials import Material, ramp, wood_grain, _c
-from noise import fbm3, value3, hash01
+from noise import fbm3, value3, hash01, cells3
 
-LEAF_COLS = ["#1c3510", "#2f5118", "#466c20", "#64892a", "#8ba63a", "#a9bd4c"]
+# olive / moss / yellow-green, per the art bible (not a single saturated lime)
+LEAF_COLS = ["#16290d", "#243d13", "#37551a", "#4f7022", "#6f8c2c", "#93a83a", "#b4c052"]
+LEAF_COLS_WARM = ["#1a2a0c", "#2c4012", "#45591a", "#637322", "#86902e", "#a9a83c", "#c8c056"]
+LEAF_COLS_COOL = ["#12280f", "#1e3d16", "#2e561e", "#447226", "#5f8c30", "#80a63e", "#a2bd52"]
 
 
-def foliage_material(seed, cols=LEAF_COLS, bright=0.0):
+def foliage_material(seed, cols=LEAF_COLS, bright=0.0, centre_z=None, span=1.0, leaf=9.0):
+    """Leaf-cluster foliage. Each Voronoi cell is one spray of leaves: lit on
+    its upper side, dark where it tucks under its neighbour, with a hard dark
+    gap between sprays. `centre_z`/`span` add a crown-wide top-light gradient
+    so the canopy reads as a layered mass, not a ball of noise."""
     def f(p, n):
-        macro = fbm3(p, 2.2, 2, seed)
-        leaf = value3(p[:, 0] * 30, p[:, 1] * 30, p[:, 2] * 30, seed + 9)
-        leaf2 = value3(p[:, 0] * 64, p[:, 1] * 64, p[:, 2] * 64, seed + 4)
-        spot = np.clip((leaf - 0.52) * 5.0, 0, 1)  # crisp individual leaf highlights
-        t = 0.24 + (macro - 0.5) * 0.7 + spot * 0.42 + (leaf2 - 0.5) * 0.3 + bright
-        t = t + np.clip(n[:, 2], 0, 1) * 0.16
+        f1, f2, cid, dz = cells3(p, leaf, seed)
+        edge = f2 - f1                                   # 0 at the gap between sprays
+        up = np.clip(0.5 + dz * 0.9, 0, 1)                # upper half of each spray is lit
+        macro = fbm3(p, 1.6, 2, seed)
+        speck = value3(p[:, 0] * 58, p[:, 1] * 58, p[:, 2] * 58, seed + 4)
+        t = 0.16 + up * 0.36 + (cid - 0.5) * 0.24 + (macro - 0.5) * 0.3 + (speck - 0.5) * 0.2 + bright
+        t += np.clip(n[:, 2], -0.4, 1) * 0.14
+        if centre_z is not None:
+            t += np.clip((p[:, 2] - centre_z) / span, -1, 1) * 0.2
+        t = np.where(edge < 0.12, t - 0.34, t)             # crisp dark seams
         return ramp(np.clip(t, 0, 1), cols)
-    return Material(f, 0.6, 28.0, seed=seed)
+    return Material(f, 0.5, 26.0, seed=seed)
 
 
-BARK = wood_grain(["#2b1d12", "#4a3322", "#6b4d34", "#80664a"], axis=2, seed=3, bump_s=0.3)
+BARK = wood_grain(["#241710", "#3f2a1b", "#5f4630", "#7d6044", "#96785a"], axis=2, seed=3, bump_s=0.35)
 
 
 def tree(seed=1, height=3.6, spread=1.3, trunk_r=0.15, clusters=46, cols=LEAF_COLS):
+    """Broadleaf tree: a stout trunk that forks into visible limbs, carrying
+    separate foliage masses (not one sphere-cloud)."""
     rng = np.random.default_rng(seed)
     s = Scene()
-    lean = rng.normal(0, 0.06, 2)
-    top = np.array([lean[0], lean[1], height * 0.55])
-    s.capsule((0, 0, -0.05), top, trunk_r, BARK, rb=trunk_r * 0.6, displace=(0.012, 9.0, seed))
-    for a in rng.uniform(0, 2 * np.pi, 4):
-        e = np.array([np.cos(a) * trunk_r * 2.4, np.sin(a) * trunk_r * 2.4, 0.0])
-        s.capsule((0, 0, 0.2), e, trunk_r * 0.55, BARK, rb=0.035)
-    canopy_c = np.array([lean[0] * 2, lean[1] * 2, height * 0.7])
+    trunk_r = trunk_r * 1.35
+    lean = rng.normal(0, 0.07, 2)
+    fork = np.array([lean[0], lean[1], height * 0.42])
+    s.capsule((0, 0, -0.05), fork, trunk_r * 1.15, BARK, rb=trunk_r * 0.72, displace=(0.02, 7.0, seed))
+    for a in rng.uniform(0, 2 * np.pi, 5):   # root flare
+        e = np.array([np.cos(a) * trunk_r * 2.6, np.sin(a) * trunk_r * 2.6, 0.0])
+        s.capsule((0, 0, 0.3), e, trunk_r * 0.6, BARK, rb=0.04)
+    crown_z = height * 0.68
+    masses = max(6, clusters // 6)
     pts = []
-    for i in range(clusters):
-        ang = rng.uniform(0, 2 * np.pi)
-        r = spread * np.sqrt(rng.uniform(0.02, 1.0))
-        dome = 1 - (r / spread) ** 2
-        z = canopy_c[2] + (height - canopy_c[2]) * dome * rng.uniform(0.35, 1.0) - rng.uniform(0.0, 0.5) * (r / spread)
-        c = np.array([canopy_c[0] + np.cos(ang) * r, canopy_c[1] + np.sin(ang) * r, z])
-        rad = rng.uniform(0.22, 0.36) * (1.15 - 0.3 * r / spread) * (spread / 1.25) ** 0.6
-        pts.append((c, rad))
-    for k in range(5):  # dense core so the crown never shows holes
-        a = k * 2 * np.pi / 5 + rng.uniform(0, 0.5)
-        c = canopy_c + np.array([np.cos(a) * spread * 0.35, np.sin(a) * spread * 0.35, (height - canopy_c[2]) * 0.55])
-        pts.append((c, 0.42 * (spread / 1.3) ** 0.6))
-    for c, rad in pts[: max(4, clusters // 4)]:
-        b = top + (c - top) * 0.75
-        s.capsule(top, b, trunk_r * 0.45, BARK, rb=0.03)
-    mats = [foliage_material(seed * 100 + k, cols, bright=(k - 1) * 0.05) for k in range(3)]
+    a0 = rng.uniform(0, 2 * np.pi)
+    for m in range(masses):
+        if m < 2:      # crown
+            ang = a0 + m * np.pi + rng.uniform(-0.4, 0.4)
+            rr = spread * 0.22 * m
+            c = np.array([lean[0] * 2 + np.cos(ang) * rr, lean[1] * 2 + np.sin(ang) * rr, height - spread * 0.5])
+            mr = spread * rng.uniform(0.46, 0.54)
+        else:          # skirt of boughs, wider than the crown and lower
+            ang = a0 + (m - 2) * 2 * np.pi / (masses - 2) + rng.uniform(-0.3, 0.3)
+            rr = spread * rng.uniform(0.62, 0.85)
+            c = np.array([lean[0] * 2 + np.cos(ang) * rr, lean[1] * 2 + np.sin(ang) * rr,
+                          crown_z + rng.uniform(-0.3, 0.12) * spread])
+            mr = spread * rng.uniform(0.32, 0.46)
+        s.capsule(fork, fork + (c - fork) * 0.85, trunk_r * 0.45, BARK, rb=0.03, displace=(0.01, 9.0, seed + m))
+        pts.append((c, np.array([mr, mr, mr * 0.72])))
+        for k in range(5):   # sprays that break the outline into leafy lobes
+            d = rng.normal(0, 1, 3)
+            d[2] = d[2] * 0.45
+            d /= np.linalg.norm(d)
+            sr = mr * rng.uniform(0.34, 0.52)
+            pts.append((c + d * np.array([mr, mr, mr * 0.72]) * 0.95, np.array([sr, sr, sr * 0.75])))
+    palettes = [cols, LEAF_COLS_WARM if cols is LEAF_COLS else cols, LEAF_COLS_COOL if cols is LEAF_COLS else cols]
+    mats = [foliage_material(seed * 100 + k, palettes[k], bright=(k - 1) * 0.03, centre_z=crown_z, span=height - crown_z + 0.4,
+                             leaf=6.5)
+            for k in range(3)]
     for i, (c, rad) in enumerate(pts):
-        s.sphere(c, rad, mats[i % 3], displace=(0.085, 11.0, seed * 31 + i))
+        s.ellipsoid(c, rad, mats[(i // 6) % 3], displace=(0.11, 6.5, seed * 31 + i))
     return s
 
 
 def bush(seed=2, r=0.42, dots=None, dot_r=0.035, cols=LEAF_COLS):
     rng = np.random.default_rng(seed)
     s = Scene()
-    mats = [foliage_material(seed + k, cols, 0.05) for k in range(2)]
+    mats = [foliage_material(seed + k, cols, 0.06, centre_z=r * 0.7, span=r, leaf=13.0) for k in range(2)]
     for i in range(7):
         a = rng.uniform(0, 2 * np.pi)
         d = rng.uniform(0, r * 0.55)
@@ -80,11 +104,16 @@ def bush(seed=2, r=0.42, dots=None, dot_r=0.035, cols=LEAF_COLS):
 
 def rock_material(seed):
     def f(p, n):
-        t = fbm3(p, 4.0, 3, seed) * 1.3 - 0.15 + (value3(p[:, 0] * 30, p[:, 1] * 30, p[:, 2] * 30, seed) - 0.5) * 0.35
-        c = ramp(np.clip(t, 0, 1), ["#3e3c39", "#5b5853", "#77736b", "#938d82"])
-        moss = np.clip((fbm3(p, 6, 2, seed + 4) - 0.55) * 4, 0, 1) * np.clip(n[:, 2], 0, 1)
-        return c * (1 - moss[:, None]) + _c("#5c6e2a")[None, :] * moss[:, None]
-    return Material(f, 0.3, 16.0, seed=seed)
+        f1, f2, cid, dz = cells3(p, 5.5, seed)
+        t = 0.3 + cid * 0.35 + (fbm3(p, 5.0, 2, seed) - 0.5) * 0.5 \
+            + (value3(p[:, 0] * 34, p[:, 1] * 34, p[:, 2] * 34, seed) - 0.5) * 0.22 + np.clip(n[:, 2], 0, 1) * 0.18
+        c = ramp(np.clip(t, 0, 1), ["#46464a", "#63646a", "#828389", "#a0a1a6", "#bcbcc0"])
+        c = np.where(((f2 - f1) < 0.07)[:, None], c * 0.5, c)          # cracks between facets
+        warm = hash01(np.floor(cid * 16), seed=seed) > 0.55
+        c = c * np.where(warm[:, None], np.array([1.05, 0.99, 0.91]), np.array([0.96, 0.99, 1.04]))
+        moss = np.clip((fbm3(p, 5, 2, seed + 4) - 0.6) * 5, 0, 1) * np.clip(n[:, 2], 0, 1)
+        return c * (1 - moss[:, None] * 0.8) + _c("#5f7230")[None, :] * moss[:, None] * 0.8
+    return Material(f, 0.35, 14.0, seed=seed)
 
 
 def rock_pile(seed=3, n=4, size=0.45):
@@ -96,8 +125,8 @@ def rock_pile(seed=3, n=4, size=0.45):
         r = np.array([rng.uniform(0.6, 1.0), rng.uniform(0.6, 1.0), rng.uniform(0.5, 0.85)]) * size * (1.0 if i == 0 else rng.uniform(0.45, 0.75))
         c = np.array([np.cos(a) * d, np.sin(a) * d, r[2] * 0.45])
         R = rot_axis_mat(rng.normal(0, 1, 3), rng.uniform(0.2, 0.6)) @ rot_z_mat(rng.uniform(0, np.pi))
-        s.box((0, 0, 0), r * 0.85, rock_material(seed + i), round_=min(r) * 0.35,
-              displace=(0.03, 6.0, seed + i * 3), T=c, R=R)
+        s.box((0, 0, 0), r * 0.85, rock_material(seed + i), round_=min(r) * 0.22,
+              displace=(0.035, 5.0, seed + i * 3), T=c, R=R)
     return s
 
 
