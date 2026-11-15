@@ -250,7 +250,9 @@ func _on_hello(peer: int, s: Dictionary, msg: Dictionary) -> void:
 	for id in sim.entities:
 		ents.append([id, sim.entities[id].open])
 	net.send(peer, Protocol.make(Protocol.WELCOME, {"session": sid, "actor": actor, "name": nm,
-		"tick_rate": tick_rate, "state_rate": state_rate, "time": time, "players": players, "entities": ents}))
+		"tick_rate": tick_rate, "state_rate": state_rate, "time": time, "players": players, "entities": ents,
+		"npcs": _npc_records()}))
+	_after_welcome(peer, actor)
 	for o in sessions.values():
 		if o["peer"] != peer and o["state"] == "active":
 			net.send(o["peer"], Protocol.make(Protocol.PLAYER_JOIN, {"player": _player_record(sim.players[actor])}))
@@ -362,6 +364,7 @@ func _tick(dt: float) -> void:
 					if time - s["last_input_time"] > 30.0:
 						_kick(peer, "idle timeout")
 	sim.interaction.update(dt)
+	sim.step_combat(dt)
 	if _items_dirty or sim.items.revision != _last_rev:
 		_flush_items()
 	if persistent:
@@ -386,8 +389,14 @@ func _send_states() -> void:
 		for a in sim.players:
 			var ps: PlayerState = sim.players[a]
 			if a == s["actor"] or me.pos.distance_to(ps.pos) <= Protocol.INTEREST_RADIUS:
-				list.append([a, ps.pos.x, ps.pos.y, ps.facing, ps.moving, ps.running])
-		net.send(peer, Protocol.make(Protocol.STATE, {"tick": tick, "time": time, "ack": s["applied_seq"], "players": list}), false)
+				list.append([a, ps.pos.x, ps.pos.y, ps.facing, ps.moving, ps.running,
+					ps.combat.hp_pct() if ps.combat else 100, ps.combat.dead if ps.combat else false])
+		var nl := []
+		for id in sim.npcs:
+			var n: NpcState = sim.npcs[id]
+			if me.pos.distance_to(n.pos) <= Protocol.INTEREST_RADIUS:
+				nl.append([id, n.pos.x, n.pos.y, n.facing, n.moving, n.combat.hp_pct(), n.combat.dead])
+		net.send(peer, Protocol.make(Protocol.STATE, {"tick": tick, "time": time, "ack": s["applied_seq"], "players": list, "npcs": nl}), false)
 
 
 # --- item interest -----------------------------------------------------------------
@@ -455,8 +464,44 @@ func _on_sim_event(e: Dictionary) -> void:
 		"container_opened", "container_closed":
 			_items_dirty = true
 			_to_actor(e)
+		"combat":
+			_to_nearby(e, e.get("pos", Vector2.INF))
+		"entity_spawned", "entity_removed":
+			_items_dirty = true
+			_broadcast(Protocol.make(Protocol.EVENT, {"e": Protocol.event_to_wire(e)}))
 		_:
 			_to_actor(e)
+
+
+func _to_nearby(e: Dictionary, at: Vector2) -> void:
+	var msg := Protocol.make(Protocol.EVENT, {"e": Protocol.event_to_wire(e)})
+	for peer in sessions:
+		var s: Dictionary = sessions[peer]
+		if s["state"] == "active" and (at == Vector2.INF or sim.actor_pos(s["actor"]).distance_to(at) <= Protocol.INTEREST_RADIUS):
+			net.send(peer, msg)
+
+
+func _npc_records() -> Array:
+	var out := []
+	for id in sim.npcs:
+		var n: NpcState = sim.npcs[id]
+		out.append([id, n.archetype, n.pos.x, n.pos.y, n.facing, roundi(n.combat.hp), roundi(n.combat.hp_max), n.combat.dead])
+	return out
+
+
+## After WELCOME: remains already lying in the world, and the player's own vitals and skills.
+func _after_welcome(peer: int, actor: String) -> void:
+	for id in sim.entities:
+		var ent: Interactable = sim.entities[id]
+		if ent.kind == "corpse":
+			var c: ContainerComponent = sim.items.containers[ent.container_id]
+			net.send(peer, Protocol.make(Protocol.EVENT, {"e": Protocol.event_to_wire({"type": "entity_spawned", "id": id,
+				"kind": "corpse", "pos": ent.pos, "def": ent.def, "container": c.id, "title": c.title, "capacity": c.capacity, "columns": c.columns})}))
+	var ps: PlayerState = sim.players.get(actor)
+	if ps and ps.combat:
+		net.send(peer, Protocol.make(Protocol.EVENT, {"e": {"type": "vitals", "actor": actor, "v": ps.combat.vitals(), "dead": ps.combat.dead}}))
+		for k in ps.skills:
+			net.send(peer, Protocol.make(Protocol.EVENT, {"e": {"type": "skill", "actor": actor, "skill": k, "value": ps.skills[k], "name": sim.combat.data["skills"][k]["name"], "initial": true}}))
 
 
 func _to_actor(e: Dictionary) -> void:
@@ -531,6 +576,12 @@ func _start_persistence() -> Error:
 	sim.interaction.transfers.persist = _persist_items
 	sim.interaction.persist_world = _persist_world
 	sim.interaction.item_guard = func() -> String: return "storage_unavailable" if not _unresolved.is_empty() else ""
+	sim.combat.persist_loot = _persist_loot
+	sim.combat.unpersist_loot = func(cid: String) -> String:
+		var rr := keeper.call_sync("despawn_loot", {"object_id": cid}, 2.0)
+		return "" if rr.get("ok", false) else "storage_unavailable"
+	if int(data.get("purged_temporary", 0)) > 0:
+		_log("removed %d creature remains left from the previous run (temporary policy)" % data["purged_temporary"])
 	_log("persistent world loaded: %d items, seeded %s" % [data["items"].size(), data["seeded"]])
 	return OK
 
@@ -555,6 +606,21 @@ func _persist_items(actor: String, plan: Dictionary, changes: Array) -> String:
 	if code in ["version_conflict", "conflict", "constraint"]:
 		_log("storage refused item op (%s) - memory and database disagree; investigate" % code)
 	return code
+
+
+## Loot is created in storage BEFORE it exists in the world (one op id per death).
+func _persist_loot(corpse: Dictionary, rows: Array) -> String:
+	var items := []
+	for r in rows:
+		items.append({"uid": r["uid"], "def": r["def"], "qty": r["qty"], "loc": r["loc"]})
+	var rr := keeper.call_sync("spawn_loot", {"op_id": KeeperClient.new_op_id(), "region": region, "corpse": corpse, "items": items}, 2.0)
+	return "" if rr.get("ok", false) else str(rr.get("code", "storage_unavailable"))
+
+
+func _progress_of(ps: PlayerState) -> Dictionary:
+	var v := ps.combat.to_save() if ps.combat else {}
+	v["dead"] = ps.combat.dead if ps.combat else false
+	return {"vitals": v, "skills": ps.skills}
 
 
 func _resolve_unresolved() -> void:
@@ -752,6 +818,16 @@ func _enter_world(peer: int, s: Dictionary, rid: int, cid: int) -> void:
 			var ps := sim.add_player(actor, c["name"], pos, c["appearance"])
 			ps.character_id = cid
 			ps.facing = int(c["facing"])
+			for k in c.get("skills", {}):
+				if ps.skills.has(k):
+					ps.skills[k] = float(c["skills"][k])
+			if not c.get("vitals", {}).is_empty():
+				ps.combat.load_save(c["vitals"])
+				if bool(c["vitals"].get("dead", false)):   # logged out while defeated: recover at the shrine
+					var rp: Array = sim.combat.data["player"]["respawn"]
+					ps.pos = sim._free_drop_spot(Vector2(rp[0], rp[1]))
+					ps.combat.hp = ps.combat.hp_max * float(sim.combat.data["player"]["respawn_hp_frac"])
+					ps.sync_render()
 			sim.items.load_rows(r["data"]["items"])
 			s["actor"] = actor
 			s["character_id"] = cid
@@ -786,7 +862,9 @@ func _send_welcome(peer: int, s: Dictionary) -> void:
 	for id in sim.entities:
 		ents.append([id, sim.entities[id].open])
 	net.send(peer, Protocol.make(Protocol.WELCOME, {"session": s["session"], "actor": s["actor"], "name": s["name"],
-		"tick_rate": tick_rate, "state_rate": state_rate, "time": time, "players": players, "entities": ents}))
+		"tick_rate": tick_rate, "state_rate": state_rate, "time": time, "players": players, "entities": ents,
+		"npcs": _npc_records()}))
+	_after_welcome(peer, s["actor"])
 	_known[peer] = {}
 	_items_dirty = true
 	_flush_items()
@@ -799,8 +877,9 @@ func _save_and_unload(s: Dictionary, reason: String) -> void:
 	if ps == null:
 		return
 	sim.interaction.close_all_for(actor)
-	keeper.request("char_release", {"character_id": ps.character_id, "server_id": server_id,
-		"x": ps.pos.x, "y": ps.pos.y, "facing": ps.facing}, func(r: Dictionary) -> void:
+	var rel := {"character_id": ps.character_id, "server_id": server_id, "x": ps.pos.x, "y": ps.pos.y, "facing": ps.facing}
+	rel.merge(_progress_of(ps))
+	keeper.request("char_release", rel, func(r: Dictionary) -> void:
 			if not r.get("ok", false):
 				_log("could not save character %d on leave (%s); position since last checkpoint may be lost" % [ps.character_id, r.get("code", "?")]))
 	sim.remove_player(actor, false)
@@ -815,7 +894,9 @@ func _checkpoint() -> void:
 	for a in sim.players:
 		var ps: PlayerState = sim.players[a]
 		if ps.character_id:
-			positions.append({"id": ps.character_id, "x": ps.pos.x, "y": ps.pos.y, "facing": ps.facing})
+			var rec := {"id": ps.character_id, "x": ps.pos.x, "y": ps.pos.y, "facing": ps.facing}
+			rec.merge(_progress_of(ps))
+			positions.append(rec)
 	if positions.is_empty():
 		return
 	keeper.request("checkpoint", {"server_id": server_id, "positions": positions}, func(r: Dictionary) -> void:
@@ -827,8 +908,9 @@ func _save_everyone(reason: String) -> void:
 	for a in sim.players.keys():
 		var ps: PlayerState = sim.players[a]
 		if ps.character_id:
-			keeper.call_sync("char_release", {"character_id": ps.character_id, "server_id": server_id,
-				"x": ps.pos.x, "y": ps.pos.y, "facing": ps.facing}, 2.0)
+			var rel := {"character_id": ps.character_id, "server_id": server_id, "x": ps.pos.x, "y": ps.pos.y, "facing": ps.facing}
+			rel.merge(_progress_of(ps))
+			keeper.call_sync("char_release", rel, 2.0)
 	_log("saved %d character(s): %s" % [sim.players.size(), reason])
 
 

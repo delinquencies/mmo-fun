@@ -332,6 +332,15 @@ func _on_welcome(msg: Dictionary) -> void:
 	for e in msg["entities"]:
 		if sim.entities.has(e[0]):
 			sim.entities[e[0]].open = e[1]
+	for n in msg["npcs"]:
+		var npc: NpcState = sim.npcs.get(n[0])
+		if npc:
+			npc.pos = Vector2(n[2], n[3])
+			npc.render_pos = npc.pos
+			npc.facing = n[4]
+			npc.combat.hp = n[5]
+			npc.combat.hp_max = n[6]
+			npc.combat.dead = n[7]
 	_seq = 0
 	_pending_inputs.clear()
 	_set_state("connected", "Connected to %s:%d as %s." % [address, port, player_name])
@@ -349,12 +358,86 @@ func _add_player(p: Array) -> void:
 
 func _on_event(e: Dictionary) -> void:
 	match e["type"]:
+		"combat":
+			_apply_combat(e)
+		"vitals":
+			var me: PlayerState = sim.players.get(actor)
+			if me and me.combat and e.get("actor") == actor:
+				var v: Array = e["v"]
+				me.combat.hp = v[0]
+				me.combat.hp_max = v[1]
+				me.combat.st = v[2]
+				me.combat.st_max = v[3]
+				me.combat.mn = v[4]
+				me.combat.mn_max = v[5]
+				me.combat.dead = e["dead"]
+		"skill":
+			var me2: PlayerState = sim.players.get(actor)
+			if me2:
+				me2.skills[e["skill"]] = float(e["value"])
+		"entity_spawned":
+			_spawn_entity(e)
+		"entity_removed":
+			var ent: Interactable = sim.entities.get(e["id"])
+			if ent:
+				for uid in sim.items.items.keys():
+					if sim.items.location(uid).get("container", "") == ent.container_id:
+						sim.items._destroy(uid)
+				sim.items.containers.erase(ent.container_id)
+				sim.interaction.open_containers.get(actor, []).erase(ent.container_id)
+				sim.entities.erase(e["id"])
 		"container_opened":
 			if not sim.interaction.is_open(actor, e["container"]):
 				sim.interaction.open_containers.get_or_add(actor, []).append(e["container"])
 		"container_closed":
 			sim.interaction.open_containers.get(actor, []).erase(e["container"])
 	event_emitted.emit(e)
+
+
+## Replica-side bookkeeping for authoritative combat events (presentation reads it).
+func _apply_combat(e: Dictionary) -> void:
+	var tid: String = e.get("target", "")
+	var tc: Combatant = null
+	if tid.begins_with("n:"):
+		tc = sim.npcs[tid].combat if sim.npcs.has(tid) else null
+	elif sim.players.has(tid):
+		tc = sim.players[tid].combat
+	match e["kind"]:
+		"damage":
+			if tc:
+				tc.hp = float(e["hp"])
+				tc.hp_max = float(e["hp_max"])
+		"death":
+			if tc:
+				tc.dead = true
+				tc.hp = 0
+		"respawn", "npc_respawn":
+			if tc:
+				tc.dead = false
+			if tid.begins_with("n:") and sim.npcs.has(tid):
+				sim.npcs[tid].pos = e["pos"]
+				sim.npcs[tid].render_pos = e["pos"]
+				_buffers.erase(tid)
+				tc.hp = tc.hp_max
+		"swing":
+			var src: String = e["source"]
+			if src.begins_with("n:") and sim.npcs.has(src):
+				sim.npcs[src].swing_started = Time.get_ticks_msec() / 1000.0
+
+
+func _spawn_entity(e: Dictionary) -> void:
+	if sim.entities.has(e["id"]):
+		return
+	var ent := Interactable.new()
+	ent.id = e["id"]
+	ent.def_id = "corpse"
+	ent.def = e["def"]
+	ent.kind = e["kind"]
+	ent.policy = "temporary"
+	ent.pos = e["pos"]
+	ent.container_id = e["container"]
+	sim.items.add_container(ContainerComponent.new(e["container"], e["title"], e["id"], int(e["capacity"]), int(e["columns"])))
+	sim.entities[ent.id] = ent
 
 
 func _on_state(msg: Dictionary) -> void:
@@ -365,9 +448,24 @@ func _on_state(msg: Dictionary) -> void:
 		server_time = t
 	else:
 		server_time = lerpf(server_time, t, 0.1)
-	for rec in msg["players"]:
-		if not (rec is Array) or rec.size() != 6:
+	for rec in msg["npcs"]:
+		if not (rec is Array) or rec.size() != 7 or not sim.npcs.has(rec[0]):
 			continue
+		var npc: NpcState = sim.npcs[rec[0]]
+		npc.pos = Vector2(rec[1], rec[2])
+		npc.combat.hp = npc.combat.hp_max * float(rec[5]) / 100.0
+		npc.combat.dead = rec[6]
+		var nb: Array = _buffers.get_or_add(rec[0], [])
+		nb.append([t, npc.pos, int(rec[3]), bool(rec[4]), false])
+		while nb.size() > 30:
+			nb.pop_front()
+	for rec in msg["players"]:
+		if not (rec is Array) or rec.size() < 6:
+			continue
+		var pc: Combatant = sim.players[rec[0]].combat if sim.players.has(rec[0]) else null
+		if pc and rec.size() >= 8 and rec[0] != actor:
+			pc.hp = pc.hp_max * float(rec[6]) / 100.0
+			pc.dead = rec[7]
 		var a: String = rec[0]
 		var ps: PlayerState = sim.players.get(a)
 		if ps == null:
@@ -452,6 +550,24 @@ func _client_tick(dt: float) -> void:
 
 func _update_render(delta: float) -> void:
 	var rt := server_time - interp_delay
+	for id in sim.npcs:
+		var n: NpcState = sim.npcs[id]
+		var nb: Array = _buffers.get(id, [])
+		if nb.is_empty():
+			n.render_pos = n.pos
+			n.render_facing = n.facing
+			continue
+		var j := nb.size() - 1
+		while j > 0 and nb[j][0] > rt:
+			j -= 1
+		var a0: Array = nb[j]
+		var a1: Array = nb[mini(j + 1, nb.size() - 1)]
+		var fr := clampf((rt - a0[0]) / (a1[0] - a0[0]), 0.0, 1.0) if a1[0] > a0[0] else 0.0
+		n.render_pos = (a0[1] as Vector2).lerp(a1[1], fr)
+		n.render_facing = a1[2] if fr > 0.5 else a0[2]
+		n.render_moving = a0[3] or a1[3]
+		if n.render_moving:
+			n.anim_time += delta
 	for a in sim.players:
 		var ps: PlayerState = sim.players[a]
 		if a == actor:

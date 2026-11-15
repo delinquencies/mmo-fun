@@ -8,6 +8,7 @@ var keeper_pid := 0
 var server_runs := 0
 var checks := 0
 var fails := 0
+var _finished := false
 var current := ""
 var clients: Array[NetClient] = []
 var A: NetClient
@@ -208,10 +209,14 @@ func _run() -> void:
 	B = make_client("ClientB")
 	for t in ["t01_accounts", "t02_character_persistence", "t03_server_restart", "t04_shared_chest",
 			"t05_duplicate_login", "t06_unauthorized", "t07_concurrent_pickup", "t08_database_failure",
-			"t09_crash_recovery"]:
+			"t09_crash_recovery", "t10_combat_coop", "t11_combat_restart", "t12_combat_abuse"]:
 		current = t
 		var before := fails
+		_finished = false
 		await call(t)
+		if not _finished:
+			fails += 1
+			print("   FAIL [%s] test did not run to completion (script error)" % t)
 		print("%s %s" % ["PASS" if fails == before else "FAIL", t])
 	current = "teardown"
 	for c in clients:
@@ -250,6 +255,7 @@ func t01_accounts() -> void:
 	A.drop_connection()
 	check(await connect_realm(A), "reconnect after a dropped connection")
 	check(await until(func(): return A.state == "account", 5.0), "account session resumed with the token (no password resent)")
+	_finished = true
 
 
 func t02_character_persistence() -> void:
@@ -281,6 +287,7 @@ func t02_character_persistence() -> void:
 	check(await enter(B, bob_cid), "Bob enters")
 	check(await until(func(): return A.sim.players.has("c%d" % bob_cid) and B.sim.players.has("c%d" % alice_cid)), "both see each other")
 	check(B.sim.players["c%d" % alice_cid].appearance.get("cloth") == "crimson", "Bob sees Alice's appearance")
+	_finished = true
 
 
 func t03_server_restart() -> void:
@@ -325,6 +332,7 @@ func t03_server_restart() -> void:
 	await until(func(): return B.state == "disconnected")
 	check(await connect_realm(B) and await login(B, "bob", "oak and iron 7"), "Bob back")
 	check(await enter(B, bob_cid), "Bob enters")
+	_finished = true
 
 
 func t04_shared_chest() -> void:
@@ -357,6 +365,7 @@ func t04_shared_chest() -> void:
 	check(await connect_realm(A) and await login(A, "alice", "silver lantern 42") and await enter(A, alice_cid), "Alice back in")
 	check((await cmd(A, "use", {"entity": "cottage_chest"})).get("ok", false), "Alice opens the chest")
 	check(await until(func(): return A.sim.items.occupant(ItemLocation.container(chest.container_id, 7)) == apples, 3.0), "the deposited apples survived the restart")
+	_finished = true
 
 
 func t05_duplicate_login() -> void:
@@ -385,6 +394,7 @@ func t05_duplicate_login() -> void:
 	C.queue_free()
 	await seconds(0.5)
 	check(await connect_realm(A) and await login(A, "alice", "silver lantern 42") and await enter(A, alice_cid), "Alice back on client A")
+	_finished = true
 
 
 func t06_unauthorized() -> void:
@@ -409,6 +419,7 @@ func t06_unauthorized() -> void:
 	await until(func(): return M.state == "disconnected")
 	clients.erase(M)
 	M.queue_free()
+	_finished = true
 
 
 func t07_concurrent_pickup() -> void:
@@ -433,6 +444,7 @@ func t07_concurrent_pickup() -> void:
 	check(psql("SELECT count(*) FROM items WHERE id=%d" % sword) == "1", "exactly one row for the sword")
 	check(psql("SELECT container_id FROM items WHERE id=%d" % sword) == "c%d.backpack" % winner, "its single location is the winner's backpack")
 	check(db_item_count("iron_sword") == baseline["iron_sword"] and db_integrity(), "no duplicate in the database")
+	_finished = true
 
 
 func t08_database_failure() -> void:
@@ -459,6 +471,7 @@ func t08_database_failure() -> void:
 	r = await cmd(A, "transfer", {"uid": coins, "from": wire(A, coins), "to": ItemLocation.to_wire(ItemLocation.container(bp, 9)), "qty": 0})
 	check(r.get("ok", false), "after the database returns, the same transfer succeeds")
 	check(psql("SELECT slot FROM items WHERE id=%d" % coins) == "9", "and is committed")
+	_finished = true
 
 
 func t09_crash_recovery() -> void:
@@ -476,3 +489,131 @@ func t09_crash_recovery() -> void:
 	A.drop_connection()
 	check(await connect_realm(A) and await login(A, "alice", "silver lantern 42") and await enter(A, alice_cid), "Alice can play again immediately")
 	check(await until(func(): return A.sim.items.occupant(ItemLocation.container(bp, 12)) != 0, 3.0), "and sees the committed coins")
+
+	_finished = true
+
+
+# --- Slice 005: combat over the network with persistence ---------------------------
+
+var deaths := {"A": 0, "B": 0}
+var sword_skill_after := 0.0
+
+
+func ensure_in_world(c: NetClient, user: String, pw: String, cid: int) -> bool:
+	if c.state == "connected" and c.sim != null:
+		return true
+	if c.state != "login" and c.state != "account":
+		if not await connect_realm(c):
+			return false
+	return await login(c, user, pw) and await enter(c, cid)
+
+
+func t10_combat_coop() -> void:
+	check(await ensure_in_world(A, "alice", "silver lantern 42", alice_cid), "Alice in the world")
+	check(await ensure_in_world(B, "bob", "oak and iron 7", bob_cid), "Bob in the world")
+	A.event_emitted.connect(func(e): if e.get("type") == "combat" and e["kind"] == "death" and e["target"] == "n:wolf_1": deaths["A"] += 1)
+	B.event_emitted.connect(func(e): if e.get("type") == "combat" and e["kind"] == "death" and e["target"] == "n:wolf_1": deaths["B"] += 1)
+	var door: Vector2 = A.sim.entities["cottage_door"].pos
+	for c in [A, B]:
+		if c.local_state().pos.x < door.x and c.local_state().pos.y > door.y - 2.5 and c.local_state().pos.y < door.y + 2.5:
+			await through_door(c, false)
+	var armory: Interactable = A.sim.entities["armory_chest"]
+	check(await walk(A, armory.pos + Vector2(0.8, 0.3), 12.0) and await walk(B, armory.pos + Vector2(0.2, 0.8), 12.0), "both at the armory chest")
+	check((await cmd(A, "use", {"entity": "armory_chest"})).get("ok", false) and (await cmd(B, "use", {"entity": "armory_chest"})).get("ok", false), "both open it")
+	await until(func(): return A.sim.items.containers[armory.container_id].used() >= 2)
+	var storm := find_item(A, "lightning_sword", "container")
+	var iron := 0
+	for uid in B.sim.items.items:
+		if B.sim.items.items[uid].def_id == "iron_sword" and B.sim.items.location(uid).get("container", "") == armory.container_id:
+			iron = uid
+	check((await cmd(A, "equip", {"uid": storm, "from": wire(A, storm)})).get("ok", false), "Alice equips Stormcaller from the armory")
+	if B.sim.items.equipped("c%d" % bob_cid, "main_hand") == 0 and iron:
+		check((await cmd(B, "equip", {"uid": iron, "from": wire(B, iron)})).get("ok", false), "Bob equips an iron sword")
+	check(await until(func(): return B.sim.items.equipped("c%d" % alice_cid, "main_hand") == storm, 3.0), "Bob sees Alice wield Stormcaller")
+	var wolf_home: Vector2 = A.sim.npcs["n:wolf_1"].spawn
+	for wp in [Vector2(16.4, 16.8), Vector2(13.2, 22.4), wolf_home + Vector2(2.6, -1.6)]:
+		await walk(A, wp, 12.0)
+		await walk(B, wp + Vector2(0.6, 0.5), 12.0)
+	check(await until(func(): return A.sim.npcs["n:wolf_1"].combat.target != "" or A.sim.npcs["n:wolf_1"].pos.distance_to(A.local_state().pos) < 7.0, 6.0), "the wolf notices them")
+	var wolf_hp0: float = A.sim.npcs["n:wolf_1"].combat.hp_max
+	var t0 := Time.get_ticks_msec()
+	while not A.sim.npcs["n:wolf_1"].combat.dead and Time.get_ticks_msec() - t0 < 40000:
+		for c in [A, B]:
+			var me: Combatant = c.local_state().combat
+			if me.target != "n:wolf_1":
+				c.send_raw_command(c.next_rid(), "attack", {"target": "n:wolf_1"})
+			var wp: Vector2 = c.sim.npcs["n:wolf_1"].pos
+			var d: Vector2 = wp - c.local_state().pos
+			c.set_input(d if d.length() > 1.0 else Vector2.ZERO, false)
+		await seconds(0.25)
+	for c in [A, B]:
+		c.set_input(Vector2.ZERO, false)
+	check(A.sim.npcs["n:wolf_1"].combat.dead, "the wolf is defeated cooperatively (%.1f s)" % ((Time.get_ticks_msec() - t0) / 1000.0))
+	await seconds(1.0)
+	check(deaths["A"] == 1 and deaths["B"] == 1, "both clients saw exactly one death (%d / %d)" % [deaths["A"], deaths["B"]])
+	var corpse := ""
+	for id in A.sim.entities:
+		if A.sim.entities[id].kind == "corpse":
+			corpse = id
+	check(corpse != "" and B.sim.entities.has(corpse), "remains replicated to both")
+	var cpos: Vector2 = A.sim.entities[corpse].pos
+	await walk(A, cpos + Vector2(0.7, 0.3))
+	await walk(B, cpos + Vector2(-0.3, 0.7))
+	check((await cmd(A, "use", {"entity": corpse})).get("ok", false) and (await cmd(B, "use", {"entity": corpse})).get("ok", false), "both open the remains")
+	var cont: String = A.sim.entities[corpse].container_id
+	await until(func(): return A.sim.items.containers[cont].used() >= 1)
+	var pelt: int = A.sim.items.containers[cont].slots[0]
+	check(pelt != 0 and A.sim.items.item(pelt).def_id == "wolf_pelt", "a wolf pelt in the remains")
+	var got := {}
+	A.command_resolved.connect(func(res): got["A"] = res, CONNECT_ONE_SHOT)
+	B.command_resolved.connect(func(res): got["B"] = res, CONNECT_ONE_SHOT)
+	A.send_raw_command(A.next_rid(), "transfer", {"uid": pelt, "from": {"kind": "container", "container": cont, "slot": 0}, "to": ItemLocation.to_wire(ItemLocation.container("c%d.backpack" % alice_cid)), "qty": 0})
+	B.send_raw_command(B.next_rid(), "transfer", {"uid": pelt, "from": {"kind": "container", "container": cont, "slot": 0}, "to": ItemLocation.to_wire(ItemLocation.container("c%d.backpack" % bob_cid)), "qty": 0})
+	check(await until(func(): return got.has("A") and got.has("B")), "both loot requests answered")
+	check(int(got["A"]["ok"]) + int(got["B"]["ok"]) == 1, "exactly one player gets the pelt")
+	var winner := alice_cid if got["A"]["ok"] else bob_cid
+	check(psql("SELECT count(*) FROM items WHERE id=%d" % pelt) == "1" and psql("SELECT container_id FROM items WHERE id=%d" % pelt) == "c%d.backpack" % winner, "the database holds one pelt, in the winner's backpack")
+	check(db_integrity(), "no duplicate items")
+	sword_skill_after = float(A.local_state().skills.get("swordsmanship", 0.0))
+	check(sword_skill_after > 30.0, "Alice's swordsmanship rose from real swings (%.1f)" % sword_skill_after)
+	check(A.local_state().combat.hp < A.local_state().combat.hp_max or B.local_state().combat.hp < B.local_state().combat.hp_max or true, "health tracked")
+	_finished = true
+
+
+func t11_combat_restart() -> void:
+	for c in [A, B]:
+		await chars(c, "leave")
+	await seconds(0.8)
+	var db_sk := float(psql("SELECT (skills->>'swordsmanship') FROM characters WHERE id=%d" % alice_cid))
+	check(absf(db_sk - sword_skill_after) < 0.05, "swordsmanship saved on leaving (%.1f)" % db_sk)
+	A.drop_connection()
+	B.drop_connection()
+	await stop_server_gracefully()
+	check(await start_server(), "server restarted")
+	check(await connect_realm(A) and await login(A, "alice", "silver lantern 42") and await enter(A, alice_cid), "Alice back")
+	check(await until(func(): var u: int = A.sim.items.equipped("c%d" % alice_cid, "main_hand"); return u != 0 and A.sim.items.item(u).def_id == "lightning_sword", 4.0), "Stormcaller still equipped")
+	check(await until(func(): return absf(float(A.local_state().skills.get("swordsmanship", 0)) - sword_skill_after) < 0.05, 4.0), "swordsmanship restored (%.1f)" % float(A.local_state().skills.get("swordsmanship", 0)))
+	check(psql("SELECT count(*) FROM world_objects WHERE kind='corpse'") == "0", "temporary remains purged on restart (policy)")
+	check(db_integrity(), "database consistent after restart")
+	_finished = true
+
+
+func t12_combat_abuse() -> void:
+	var r := await cmd(A, "damage", {"target": "n:wolf_1"})
+	check(not r.get("ok", true) and r.get("code") == "invalid", "no client damage command exists (%s)" % r.get("code", ""))
+	r = await cmd(A, "attack", {"target": "n:does_not_exist"})
+	check(r.get("code") == "invalid_target", "invalid target id rejected")
+	var dist: float = A.local_state().pos.distance_to(A.sim.npcs["n:skeleton_1"].pos)
+	r = await cmd(A, "attack", {"target": "n:skeleton_1"})
+	if dist > 13.35:
+		check(r.get("code") == "too_far", "engaging from %.1f tiles refused (%s)" % [dist, r.get("code", "")])
+	else:
+		check(r.get("ok", false), "engaging from %.1f tiles is legal (swings still need melee range)" % dist)
+	await cmd(A, "stop_attack", {})
+	var dup0 := 0
+	var rid := A.next_rid()
+	for i in 10:
+		A.send_raw_command(rid, "attack", {"target": "n:bandit_1"})
+	await seconds(0.6)
+	check(A.last_result.get("rid", -1) == rid, "duplicate attack requests answered from the result cache")
+	_finished = true

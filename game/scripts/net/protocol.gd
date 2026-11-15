@@ -3,7 +3,7 @@ class_name Protocol
 ## All schemas live here; both sides validate everything they receive.
 ## Documented in docs/NETWORK_PROTOCOL.md - keep the two in sync.
 
-const VERSION := 2               # v2 (Slice 004): accounts, characters, persistence
+const VERSION := 3               # v3 (Slice 005): combat, creatures, vitals; v2: accounts
 const DEFAULT_PORT := 24680
 const MAP := "res://data/maps/homestead.json"
 
@@ -27,7 +27,7 @@ const BYE := "bye"               # {}
 # client -> server, unreliable ordered
 const INPUT := "input"           # {inputs: [[seq:int, dx:float, dy:float, run:bool], ...]}
 # server -> client, reliable
-const WELCOME := "welcome"       # {session, actor, name, tick_rate, state_rate, time, players:[P], entities:[[id, open]]}
+const WELCOME := "welcome"       # {session, actor, name, tick_rate, state_rate, time, players:[P], entities:[[id, open]], npcs:[N]}
 const REJECT := "reject"         # {reason}
 const PLAYER_JOIN := "join"      # {player: P}
 const PLAYER_LEAVE := "leave"    # {actor, reason}
@@ -46,8 +46,10 @@ const REALM := "realm"           # S->C {persistent, realm, max_characters, secu
 const LEFT_WORLD := "left"       # S->C {reason}   (back to character selection)
 const MAX_CHARACTERS := 3
 # server -> client, unreliable ordered
-const STATE := "state"           # {tick, time, ack, players: [[actor, x, y, facing, moving, running]]}
+const STATE := "state"           # {tick, time, ack, players: [[actor, x, y, facing, moving, running, hp_pct, dead]],
+                                 #  npcs: [[id, x, y, facing, moving, hp_pct, dead]]}
 # P = [actor, name, x, y, facing, linkdead, appearance]
+# N = [id, archetype, x, y, facing, hp, hp_max, dead]
 
 const SCHEMAS := {
 	HELLO: {"name": TYPE_STRING},
@@ -56,7 +58,7 @@ const SCHEMAS := {
 	BYE: {},
 	INPUT: {"inputs": TYPE_ARRAY},
 	WELCOME: {"session": TYPE_STRING, "actor": TYPE_STRING, "name": TYPE_STRING, "tick_rate": TYPE_INT,
-		"state_rate": TYPE_INT, "time": TYPE_FLOAT, "players": TYPE_ARRAY, "entities": TYPE_ARRAY},
+		"state_rate": TYPE_INT, "time": TYPE_FLOAT, "players": TYPE_ARRAY, "entities": TYPE_ARRAY, "npcs": TYPE_ARRAY},
 	REJECT: {"reason": TYPE_STRING},
 	PLAYER_JOIN: {"player": TYPE_ARRAY},
 	PLAYER_LEAVE: {"actor": TYPE_STRING, "reason": TYPE_STRING},
@@ -66,7 +68,7 @@ const SCHEMAS := {
 	EVENT: {"e": TYPE_DICTIONARY},
 	RESULT: {"rid": TYPE_INT, "ok": TYPE_BOOL, "code": TYPE_STRING, "message": TYPE_STRING},
 	PONG: {"time": TYPE_FLOAT, "server_time": TYPE_FLOAT},
-	STATE: {"tick": TYPE_INT, "time": TYPE_FLOAT, "ack": TYPE_INT, "players": TYPE_ARRAY},
+	STATE: {"tick": TYPE_INT, "time": TYPE_FLOAT, "ack": TYPE_INT, "players": TYPE_ARRAY, "npcs": TYPE_ARRAY},
 	AUTH: {"rid": TYPE_INT, "op": TYPE_STRING, "args": TYPE_DICTIONARY},
 	AUTH_RESULT: {"rid": TYPE_INT, "ok": TYPE_BOOL, "code": TYPE_STRING, "message": TYPE_STRING, "data": TYPE_DICTIONARY},
 	CHARS: {"rid": TYPE_INT, "op": TYPE_STRING, "args": TYPE_DICTIONARY},
@@ -170,7 +172,7 @@ static func validate_command(c: Dictionary) -> String:
 			"from", "to":
 				if not _loc_ok(v):
 					return "bad_" + k
-			"entity", "container", "slot":
+			"entity", "container", "slot", "target":
 				if not (v is String) or (v as String).length() > 64:
 					return "bad_" + k
 			"open":

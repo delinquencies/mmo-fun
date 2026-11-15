@@ -7,6 +7,7 @@ var A: NetClient
 var B: NetClient
 var checks := 0
 var fails := 0
+var _finished := false
 var current := ""
 var baseline_totals := {}
 
@@ -149,7 +150,11 @@ func _run() -> void:
 			"t08_latency", "t07_disconnect", "t10_stability", "t11_protocol_garbage"]:
 		current = t
 		var before := fails
+		_finished = false
 		await call(t)
+		if not _finished:
+			fails += 1
+			print("   FAIL [%s] test did not run to completion (script error)" % t)
 		print("%s %s" % ["PASS" if fails == before else "FAIL", t])
 	print("\n%d checks, %d failures" % [checks, fails])
 	print("server stats: %s" % JSON.stringify(server.stats))
@@ -172,6 +177,7 @@ func t01_two_clients() -> void:
 	check(await until(func(): return B.sim.players[A.actor].render_pos.distance_to(sp) < 0.05, 2.0), "Bob sees Alice where the server says")
 	check(B.sim.players[A.actor].render_facing == Iso.dir_index(Vector2(1, -1)), "Bob sees Alice's facing (E)")
 	check(A.local_state().render_pos.distance_to(sp) < 0.05, "Alice's predicted position agrees with the server")
+	_finished = true
 
 
 func _door_spot(off: Vector2) -> Vector2:
@@ -194,6 +200,7 @@ func t02_shared_door() -> void:
 	check(not r.get("ok", true), "closing an already-closed door is rejected (idempotent)")
 	r = await cmd(A, "use", {"entity": "cottage_door"})
 	check(r.get("ok", false), "Alice reopens it for the next test")
+	_finished = true
 
 
 func t03_shared_chest() -> void:
@@ -212,10 +219,18 @@ func t03_shared_chest() -> void:
 	check(await until(func(): return B.sim.items.containers[cid].used() == 2 and B.sim.items.item(apples) == null), "Bob's chest view updates (apples gone, not visible in Alice's pack)")
 	check(A.sim.items.location(apples).get("container", "") == A.actor + ".backpack", "apples in Alice's replica backpack")
 	check(replica_consistent(A) and replica_consistent(B) and server_ok(), "replicas consistent, totals conserved")
+	_finished = true
+
+
+var _sword := 0
 
 
 func t04_simultaneous_pickup() -> void:
-	var sword := find("iron_sword")
+	var sword := 0
+	for uid in server.sim.items.world_items():
+		if server.sim.items.item(uid).def_id == "iron_sword":
+			sword = uid
+	_sword = sword
 	var spos: Vector2 = server.sim.items.location(sword)["pos"]
 	check(await through_door(A, false, -0.05), "Alice walks out")
 	await walk(A, _door_spot(Vector2(1.4, -0.6)))
@@ -240,6 +255,7 @@ func t04_simultaneous_pickup() -> void:
 	check(await until(func(): return other.sim.items.item(sword) == null and not other.sim.items.world_items().has(sword)), "the other client sees it vanish from the ground")
 	check(server_ok(), "item total unchanged")
 	_winner = winner
+	_finished = true
 
 
 var _winner: NetClient
@@ -248,7 +264,7 @@ var _winner: NetClient
 func t05_equipment_replication() -> void:
 	var w: NetClient = _winner
 	var o: NetClient = B if w == A else A
-	var sword := find("iron_sword")
+	var sword := _sword
 	var r := await cmd(w, "equip", {"uid": sword, "from": ItemLocation.to_wire(server.sim.items.location(sword))})
 	check(r.get("ok", false), "%s equips the sword" % w.player_name)
 	check(await until(func(): return o.sim.items.equipped(w.actor, "main_hand") == sword), "%s sees the sword in %s's main hand" % [o.player_name, w.player_name])
@@ -260,6 +276,7 @@ func t05_equipment_replication() -> void:
 	r = await cmd(w, "equip", {"uid": sword, "from": ItemLocation.to_wire(server.sim.items.location(sword))})
 	check(r.get("ok", false), "re-equip for later tests")
 	check(replica_consistent(A) and replica_consistent(B), "replicas consistent")
+	_finished = true
 
 
 func t06_invalid_movement() -> void:
@@ -296,6 +313,7 @@ func t06_invalid_movement() -> void:
 	check(server.stats["excess_inputs"] > 100, "excess inputs dropped (%d)" % server.stats["excess_inputs"])
 	check(jump < 0.4, "Bob never sees Alice jump (max %.3f tiles/frame)" % jump)
 	await walk(A, server.sim.spawn_point + Vector2(1.2, 1.4))
+	_finished = true
 
 
 func t09_repeated_mutations() -> void:
@@ -327,6 +345,7 @@ func t09_repeated_mutations() -> void:
 	var r := await cmd(w, "transfer", {"uid": coins, "from": ItemLocation.to_wire(server.sim.items.location(coins)), "to": from, "qty": 0})
 	check(r.get("ok", false), "coins returned to the chest")
 	check(replica_consistent(w), "replica consistent")
+	_finished = true
 
 
 func t08_latency() -> void:
@@ -354,17 +373,18 @@ func t08_latency() -> void:
 	check(await until(func(): return A.local_state().render_pos.distance_to(sp) < 0.1, 3.0), "Alice's prediction converges (corrections so far: %d, max %.2f)" % [A.corrections, A.max_correction])
 	var r := await cmd(A, "set_door", {"entity": "cottage_door", "open": false})
 	check(not r.is_empty(), "commands still resolve under latency (answer: %s)" % (r.get("code", "") if not r.get("ok", false) else "ok"))
-	var pre := await cmd(A, "pick_up", {"uid": find("iron_sword")})
+	var pre := await cmd(A, "pick_up", {"uid": _sword})
 	check(not pre.is_empty() and server_ok(), "item command under latency resolves without corrupting state (%s)" % pre.get("code", "ok"))
 	check(await until(func(): return B.sim.entities["cottage_door"].open == server.sim.entities["cottage_door"].open, 3.0), "door state agrees everywhere")
 	A.net.configure(0, 0, 0)
 	server.net.configure(0, 0, 0)
 	await seconds(0.5)
 	check(replica_consistent(A) and replica_consistent(B) and server_ok(), "no state corruption under latency/loss")
+	_finished = true
 
 
 func t07_disconnect() -> void:
-	var sword := find("iron_sword")
+	var sword := _sword
 	var holder: NetClient = _winner
 	var watcher: NetClient = B if holder == A else A
 	var holder_actor: String = holder.actor
@@ -383,6 +403,7 @@ func t07_disconnect() -> void:
 	check(await connect_client(holder, holder.player_name), "the dropped client reconnects")
 	check(holder.session_id != old_session, "and gets a fresh temporary session")
 	check(await until(func(): return replica_consistent(holder) and replica_consistent(watcher), 3.0), "both replicas consistent after reconnect")
+	_finished = true
 
 
 func t10_stability() -> void:
@@ -394,7 +415,7 @@ func t10_stability() -> void:
 	var door_spot_b := _door_spot(Vector2(1.0, 0.55))
 	check(await walk(A, door_spot_a), "A at door")
 	check(await walk(B, door_spot_b), "B at door")
-	var sword := find("iron_sword")
+	var sword := _sword
 	for i in 30:
 		await cmd(A if i % 2 == 0 else B, "use", {"entity": "cottage_door"})
 		var c: NetClient = A if i % 3 == 0 else B
@@ -430,6 +451,7 @@ func t10_stability() -> void:
 	print("      static memory %.1f MB -> %.1f MB" % [mem0 / 1048576.0, mem1 / 1048576.0])
 	check(mem1 < mem0 + 16 * 1048576.0, "no runaway memory")
 	check(replica_consistent(A) and replica_consistent(B) and server_ok(), "consistent after %d interaction cycles" % 30)
+	_finished = true
 
 
 func t11_protocol_garbage() -> void:
@@ -444,3 +466,5 @@ func t11_protocol_garbage() -> void:
 	await seconds(0.3)
 	check(server.stats["invalid_messages"] >= inv0 + 4, "malformed messages counted and ignored (%d)" % (server.stats["invalid_messages"] - inv0))
 	check(A.state == "connected" and server_ok(), "server and client unaffected")
+
+	_finished = true

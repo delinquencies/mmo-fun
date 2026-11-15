@@ -1381,7 +1381,66 @@
      1
     ]
    ]
+  },
+  {
+   "id": "armory_chest",
+   "def": "chest_wood",
+   "x": 20.3,
+   "y": 13.4,
+   "persistence": "permanent",
+   "contents": [
+    [
+     "hunting_bow",
+     1
+    ],
+    [
+     "lightning_sword",
+     1
+    ],
+    [
+     "iron_sword",
+     1
+    ]
+   ]
   }
+ ],
+ "npcs": [
+  {
+   "id": "wolf_1",
+   "archetype": "wolf",
+   "x": 8.5,
+   "y": 26.5
+  },
+  {
+   "id": "skeleton_1",
+   "archetype": "skeleton",
+   "x": 12.6,
+   "y": 33.2
+  },
+  {
+   "id": "bandit_1",
+   "archetype": "bandit",
+   "x": 6.2,
+   "y": 33.4,
+   "patrol": [
+    [
+     6.2,
+     33.4
+    ],
+    [
+     8.6,
+     36.2
+    ],
+    [
+     4.4,
+     36.0
+    ]
+   ]
+  }
+ ],
+ "respawn_point": [
+  17.2,
+  12.4
  ],
  "ground_items": [
   {

@@ -7,7 +7,12 @@
   "paperdoll_layer": "iron_sword",
   "icon": "iron_sword",
   "world_sprite": "item_iron_sword",
-  "sounds": {"pickup": "item_pickup", "drop": "item_place", "equip": "equip", "unequip": "unequip"}
+  "sounds": {
+   "pickup": "item_pickup",
+   "drop": "item_place",
+   "equip": "equip",
+   "unequip": "unequip"
+  }
  },
  "gold_coins": {
   "name": "Gold Coins",
@@ -16,7 +21,10 @@
   "max_stack": 1000,
   "icon": "gold_coins",
   "world_sprite": "item_gold_coins",
-  "sounds": {"pickup": "coins", "drop": "coins"}
+  "sounds": {
+   "pickup": "coins",
+   "drop": "coins"
+  }
  },
  "red_apple": {
   "name": "Red Apple",
@@ -32,5 +40,56 @@
   "stackable": false,
   "icon": "healing_potion",
   "world_sprite": "item_healing_potion"
+ },
+ "hunting_bow": {
+  "name": "Hunting Bow",
+  "description": "A short bow of seasoned yew. Arrows are assumed (no ammunition yet).",
+  "stackable": false,
+  "equip_slot": "main_hand",
+  "paperdoll_layer": "hunting_bow",
+  "icon": "hunting_bow",
+  "world_sprite": "item_hunting_bow",
+  "sounds": {
+   "equip": "equip",
+   "unequip": "unequip"
+  }
+ },
+ "lightning_sword": {
+  "name": "Stormcaller",
+  "description": "An enchanted blade that hums with captive lightning. Each strike may discharge it.",
+  "stackable": false,
+  "equip_slot": "main_hand",
+  "paperdoll_layer": "lightning_sword",
+  "effect": "lightning",
+  "icon": "lightning_sword",
+  "world_sprite": "item_lightning_sword",
+  "sounds": {
+   "equip": "lightning_zap",
+   "unequip": "unequip"
+  }
+ },
+ "wolf_pelt": {
+  "name": "Wolf Pelt",
+  "description": "A thick grey pelt. A tanner would want it.",
+  "stackable": true,
+  "max_stack": 20,
+  "icon": "wolf_pelt",
+  "world_sprite": "item_wolf_pelt"
+ },
+ "bone_shard": {
+  "name": "Bone Shard",
+  "description": "A splinter of old bone, faintly cold to the touch.",
+  "stackable": true,
+  "max_stack": 50,
+  "icon": "bone_shard",
+  "world_sprite": "item_bone_shard"
+ },
+ "rusty_dagger": {
+  "name": "Rusty Dagger",
+  "description": "Pitted and dull, but still sharp at the point.",
+  "stackable": false,
+  "equip_slot": "main_hand",
+  "icon": "rusty_dagger",
+  "world_sprite": "item_rusty_dagger"
  }
 }

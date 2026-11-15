@@ -1,0 +1,302 @@
+{
+ "_comment": "Slice 005 combat tuning. All balance values live here (docs/COMBAT.md).",
+ "attributes": {
+  "hp_max": 60,
+  "stamina_max": 60,
+  "mana_max": 40,
+  "attack": 10,
+  "defense": 8,
+  "regen": {
+   "hp": 0.25,
+   "stamina": 3.0,
+   "mana": 1.0,
+   "out_of_combat_mult": 4.0,
+   "combat_window": 6.0
+  }
+ },
+ "weapons": {
+  "unarmed": {
+   "kind": "melee",
+   "damage": [
+    1,
+    3
+   ],
+   "interval": 1.6,
+   "windup": 0.3,
+   "range": 1.15,
+   "stamina": 1,
+   "skill": "swordsmanship"
+  },
+  "iron_sword": {
+   "kind": "melee",
+   "damage": [
+    5,
+    9
+   ],
+   "interval": 2.0,
+   "windup": 0.45,
+   "range": 1.35,
+   "stamina": 3,
+   "skill": "swordsmanship",
+   "durability": 50
+  },
+  "rusty_dagger": {
+   "kind": "melee",
+   "damage": [
+    2,
+    5
+   ],
+   "interval": 1.5,
+   "windup": 0.3,
+   "range": 1.2,
+   "stamina": 2,
+   "skill": "swordsmanship",
+   "durability": 20
+  },
+  "lightning_sword": {
+   "kind": "melee",
+   "damage": [
+    5,
+    9
+   ],
+   "interval": 2.0,
+   "windup": 0.45,
+   "range": 1.35,
+   "stamina": 3,
+   "skill": "swordsmanship",
+   "durability": 80,
+   "effect": "lightning",
+   "electric": {
+    "damage": [
+     3,
+     6
+    ],
+    "mana": 4,
+    "status": "shocked"
+   }
+  },
+  "hunting_bow": {
+   "kind": "ranged",
+   "damage": [
+    4,
+    8
+   ],
+   "interval": 2.4,
+   "windup": 0.6,
+   "range": 8.0,
+   "stamina": 2,
+   "skill": "",
+   "projectile_speed": 14.0,
+   "ammunition": "simplified: unlimited arrows (documented)"
+  }
+ },
+ "status_effects": {
+  "shocked": {
+   "duration": 3.0,
+   "tick": 1.0,
+   "damage": [
+    1,
+    2
+   ],
+   "category": "electrical",
+   "attack_slow": 0.25
+  }
+ },
+ "skills": {
+  "swordsmanship": {
+   "name": "Swordsmanship",
+   "start": 30.0,
+   "cap": 100.0,
+   "gain": 0.1,
+   "base_chance": 0.6
+  },
+  "defense": {
+   "name": "Defense",
+   "start": 30.0,
+   "cap": 100.0,
+   "gain": 0.1,
+   "base_chance": 0.5
+  }
+ },
+ "creatures": {
+  "wolf": {
+   "name": "Grey Wolf",
+   "hp": 30,
+   "speed": 4.3,
+   "walk_speed": 1.6,
+   "damage": [
+    3,
+    6
+   ],
+   "interval": 1.2,
+   "windup": 0.25,
+   "range": 1.15,
+   "attack": 12,
+   "defense": 4,
+   "detect": 7.0,
+   "leash": 12.0,
+   "home_radius": 3.5,
+   "respawn": 45,
+   "loot": "wolf",
+   "behavior": "wolf",
+   "radius": 0.3,
+   "sounds": {
+    "aggro": "wolf_growl",
+    "attack": "wolf_bite",
+    "death": "wolf_death"
+   }
+  },
+  "skeleton": {
+   "name": "Skeleton Guard",
+   "hp": 45,
+   "speed": 2.0,
+   "walk_speed": 1.0,
+   "damage": [
+    5,
+    9
+   ],
+   "interval": 2.6,
+   "windup": 0.75,
+   "range": 1.35,
+   "attack": 14,
+   "defense": 10,
+   "detect": 5.5,
+   "leash": 8.0,
+   "home_radius": 1.0,
+   "respawn": 60,
+   "loot": "skeleton",
+   "behavior": "guard",
+   "radius": 0.28,
+   "sounds": {
+    "aggro": "bone_rattle",
+    "attack": "sword_swing",
+    "death": "bone_collapse"
+   }
+  },
+  "bandit": {
+   "name": "Bandit",
+   "hp": 40,
+   "speed": 3.2,
+   "walk_speed": 1.3,
+   "damage": [
+    4,
+    8
+   ],
+   "interval": 1.8,
+   "windup": 0.45,
+   "range": 1.35,
+   "attack": 13,
+   "defense": 7,
+   "detect": 6.5,
+   "leash": 11.0,
+   "home_radius": 4.0,
+   "respawn": 60,
+   "retreat_hp": 0.3,
+   "retreat_time": 3.5,
+   "strafe_time": 0.6,
+   "loot": "bandit",
+   "behavior": "bandit",
+   "radius": 0.26,
+   "sounds": {
+    "aggro": "bandit_shout",
+    "attack": "sword_swing",
+    "death": "bandit_death"
+   }
+  }
+ },
+ "loot_tables": {
+  "wolf": [
+   {
+    "item": "wolf_pelt",
+    "qty": [
+     1,
+     1
+    ],
+    "chance": 1.0
+   },
+   {
+    "item": "gold_coins",
+    "qty": [
+     2,
+     6
+    ],
+    "chance": 0.5
+   }
+  ],
+  "skeleton": [
+   {
+    "item": "bone_shard",
+    "qty": [
+     1,
+     3
+    ],
+    "chance": 1.0
+   },
+   {
+    "item": "gold_coins",
+    "qty": [
+     5,
+     12
+    ],
+    "chance": 0.8
+   },
+   {
+    "item": "rusty_dagger",
+    "qty": [
+     1,
+     1
+    ],
+    "chance": 0.35
+   }
+  ],
+  "bandit": [
+   {
+    "item": "gold_coins",
+    "qty": [
+     10,
+     25
+    ],
+    "chance": 1.0
+   },
+   {
+    "item": "rusty_dagger",
+    "qty": [
+     1,
+     1
+    ],
+    "chance": 0.6
+   },
+   {
+    "item": "red_apple",
+    "qty": [
+     1,
+     2
+    ],
+    "chance": 0.5
+   }
+  ]
+ },
+ "player": {
+  "respawn": [
+   17.2,
+   12.4
+  ],
+  "respawn_hp_frac": 0.5,
+  "invulnerable_after_respawn": 3.0
+ },
+ "corpse": {
+  "capacity": 8,
+  "columns": 4,
+  "decay": 180
+ },
+ "ai": {
+  "think_interval": 0.1,
+  "activation_radius": 24.0,
+  "lose_target_factor": 2.2
+ },
+ "mitigation": {
+  "defense_factor": 0.15,
+  "defense_skill_factor": 0.01,
+  "_comment": "damage -= defense*defense_factor + defense_skill*defense_skill_factor (minimum 1)"
+ }
+}

@@ -173,6 +173,25 @@ row-locked transaction. The server allows one active session per character.
 
 **Administrative endpoints.** There are none.
 
+## 7b. Slice 005 additions
+
+- **Migration `002_combat.sql`** adds `characters.vitals`
+  (`{hp, st, mn, dead}`) and `characters.skills` (`{swordsmanship, defense}`).
+  - Both are saved with the 10 s checkpoint, on leaving and at graceful
+    shutdown.
+  - Keeper validates their shape and ranges.
+  - A character saved while defeated recovers at the shrine on the next
+    login.
+- **Creature remains** are `temporary` world objects:
+  - `spawn_loot` creates the object, its container and the rolled items in
+    one idempotent transaction, *before* the remains appear;
+  - `despawn_loot` removes them on decay;
+  - `world_load` purges any left over from the previous run.
+- **Loot items** are ordinary item rows. Taking one is an ordinary durable
+  transfer.
+- **Creatures** are never persisted: they reset at server start and respawn
+  after death.
+
 ## 8. Known limitations
 
 - **Blocking commits:** item commits block the server's main loop for the

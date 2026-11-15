@@ -74,6 +74,18 @@ def catalogue():
     return c
 
 
+def _bandit(**kw):
+    kw.setdefault("weapon", "iron_sword")
+    return characters.adventurer_pose(outfit="bandit", **kw)
+
+
+CREATURES = {   # name -> (pose fn, bounds, attack kwarg, death kwarg, walk frames)
+    "wolf": (characters.wolf_pose, ((-1.0, -1.0, 0.0), (1.0, 1.0, 1.1)), "bite", "_roll", 6),
+    "skeleton": (characters.skeleton_pose, ((-1.9, -1.9, 0.0), (1.9, 1.9, 2.0)), "swing", "_fall", 6),
+    "bandit": (_bandit, ((-1.9, -1.9, 0.0), (1.9, 1.9, 2.0)), "swing", "_fall", 8),
+}
+
+
 # Multi-frame single-facing props (interactive objects). name -> (builder(frac), frames)
 FRAMED = {
     "door": (buildings.door, 4),
@@ -185,6 +197,25 @@ def _blade_visibility(r, base, tip):
     return vis / n
 
 
+def _call_pose(pose_fn, spec, kw):
+    if isinstance(spec, dict):
+        args = {k: v for k, v in spec.items() if not k.startswith("_")}
+        args.update(kw)
+        return pose_fn(**args)
+    return pose_fn(*spec, **kw)
+
+
+def _body_rotation(spec, yaw):
+    from sdf import rot_z_mat, rot_axis_mat
+    R = rot_z_mat(yaw)
+    if isinstance(spec, dict):
+        if spec.get("_fall"):
+            R = R @ rot_axis_mat((0, 1, 0), -spec["_fall"] * 1.45)
+        if spec.get("_roll"):
+            R = R @ rot_axis_mat((1, 0, 0), spec["_roll"] * 1.5)
+    return R
+
+
 def build_animated(tile_w, outdir, name, pose_fn, anims, bounds, frame_anchor_keys=(), overlays=None):
     """overlays: {overlay_id: (pose_kwargs, mask_materials)}. The base sheet is rendered
     with pose_kwargs_base = {weapon: None}; each overlay sheet holds only the pixels of
@@ -207,24 +238,28 @@ def build_animated(tile_w, outdir, name, pose_fn, anims, bounds, frame_anchor_ke
             row = []
             for f in range(nframes):
                 base_kw = {"weapon": None} if overlays else {}
-                res = pose_fn(*args_fn(f, nframes), **base_kw)
+                spec = args_fn(f, nframes)
+                body_R = _body_rotation(spec, characters.DIR_YAW[d])
+                res = _call_pose(pose_fn, spec, base_kw)
                 anchors = {}
                 if isinstance(res, tuple):
                     res, anchors = res
-                sc = Scene().extend(res, yaw=characters.DIR_YAW[d])
+                sc = Scene().extend(res, R=body_R)
                 yaw = characters.DIR_YAW[d]
-                R = np.array([[np.cos(yaw), -np.sin(yaw), 0], [np.sin(yaw), np.cos(yaw), 0], [0, 0, 1]])
+                R = body_R
                 wa = {k: R @ np.asarray(v, float) for k, v in anchors.items()}
                 r = render(sc, tile_w, canvas=canvas)
                 sheet[di * fh:(di + 1) * fh, f * fw:(f + 1) * fw] = r.rgba
                 shs[di * fh:(di + 1) * fh, f * fw:(f + 1) * fw] = r.shadow
                 fa = {k: offset_of(r, v) for k, v in wa.items()}
                 for ov, (kw, mats) in (overlays or {}).items():
-                    full, fanch = pose_fn(*args_fn(f, nframes), **kw)
-                    rf = render(Scene().extend(full, yaw=yaw), tile_w, canvas=canvas, mask_materials=mats)
+                    full, fanch = _call_pose(pose_fn, spec, kw)
+                    rf = render(Scene().extend(full, R=body_R), tile_w, canvas=canvas, mask_materials=mats)
                     layer = np.where(rf.mask[..., None], rf.rgba, 0).astype(np.uint8)
                     ov_sheets[ov][0][di * fh:(di + 1) * fh, f * fw:(f + 1) * fw] = layer
                     ov_sheets[ov][1][di * fh:(di + 1) * fh, f * fw:(f + 1) * fw] = rf.shadow & ~r.shadow
+                    if "blade_base" not in fanch:
+                        continue
                     wb = R @ np.asarray(fanch["blade_base"], float)
                     wt = R @ np.asarray(fanch["blade_tip"], float)
                     fa["blade_base"] = offset_of(rf, wb)
@@ -296,10 +331,20 @@ def main():
         if not only or "player" in only:
             anims["player"] = build_animated(
                 tw, outdir, "player", characters.adventurer_pose,
-                {"idle": (4, 4, lambda f, n: (0.0, 0.0, np.sin(f / n * 2 * np.pi))),
-                 "walk": (8, 10, lambda f, n: (f / n * 2 * np.pi, 1.0, 0.0))},
-                ((-0.95, -0.95, 0.0), (0.95, 0.95, 2.0)),
-                overlays={"iron_sword": ({"weapon": "iron_sword"}, items.WEAPON_MATERIALS)})
+                {"idle": (4, 4, lambda f, n: {"phase": 0.0, "walk": 0.0, "breathe": np.sin(f / n * 2 * np.pi)}),
+                 "walk": (8, 10, lambda f, n: {"phase": f / n * 2 * np.pi, "walk": 1.0}),
+                 "attack": (6, 12, lambda f, n: {"phase": 0.0, "walk": 0.0, "swing": f / (n - 1)}),
+                 "death": (4, 8, lambda f, n: {"phase": 0.0, "walk": 0.0, "_fall": f / (n - 1)})},
+                ((-1.9, -1.9, 0.0), (1.9, 1.9, 2.0)),
+                overlays={w: ({"weapon": w}, items.WEAPON_MATERIALS) for w in ("iron_sword", "lightning_sword", "hunting_bow")})
+        for crit, (fn, bounds, attack_key, death_key, walk_n) in CREATURES.items():
+            if not only or crit in only:
+                anims[crit] = build_animated(tw, outdir, crit, fn, {
+                    "idle": (2, 2, lambda f, n: {"phase": f * 0.4, "walk": 0.15}),
+                    "walk": (walk_n, 12, lambda f, n: {"phase": f / n * 2 * np.pi, "walk": 1.0}),
+                    "attack": (5, 10, lambda f, n, k=attack_key: {"phase": 0.0, "walk": 0.0, k: f / (n - 1)}),
+                    "death": (4, 8, lambda f, n, k=death_key: {"phase": 0.0, "walk": 0.0, k: f / (n - 1)}),
+                }, bounds)
         if not only or "sheep" in only:
             anims["sheep"] = build_animated(
                 tw, outdir, "sheep", characters.sheep_pose,

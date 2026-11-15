@@ -146,7 +146,16 @@ def main():
             {"id": "cottage_chest", "def": "chest_wood", "x": COTTAGE[0] + 0.85, "y": COTTAGE[1] + 1.25,
              "persistence": "permanent",
              "contents": [["gold_coins", 25], ["red_apple", 3], ["healing_potion", 1]]},
+            {"id": "armory_chest", "def": "chest_wood", "x": 20.3, "y": 13.4, "persistence": "permanent",
+             "contents": [["hunting_bow", 1], ["lightning_sword", 1], ["iron_sword", 1]]},
         ],
+        # Slice 005: woodland clearing encounters (behaviour data: game/data/combat.json)
+        "npcs": [
+            {"id": "wolf_1", "archetype": "wolf", "x": 8.5, "y": 26.5},
+            {"id": "skeleton_1", "archetype": "skeleton", "x": 12.6, "y": 33.2},
+            {"id": "bandit_1", "archetype": "bandit", "x": 6.2, "y": 33.4, "patrol": [[6.2, 33.4], [8.6, 36.2], [4.4, 36.0]]},
+        ],
+        "respawn_point": [17.2, 12.4],
         # spawn_id is the stable identity used by persistence (docs/PERSISTENCE.md)
         "ground_items": [
             {"spawn_id": "spawn_iron_sword", "def": "iron_sword", "x": 18.4, "y": 12.2, "persistence": "permanent"},

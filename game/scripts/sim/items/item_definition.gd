@@ -9,6 +9,7 @@ var stackable := false
 var max_stack := 1
 var equip_slot := ""          # "" = not equippable; else an EquipmentComponent slot name
 var paperdoll_layer := ""     # overlay sheet id on the character when equipped
+var effect := ""              # runtime weapon effect id (e.g. "lightning")
 var icon := ""
 var world_sprite := ""
 var sounds: Dictionary = {}
@@ -23,6 +24,7 @@ static func from_dict(def_id: String, d: Dictionary) -> ItemDefinition:
 	def.max_stack = int(d.get("max_stack", 1000 if def.stackable else 1))
 	def.equip_slot = d.get("equip_slot", "")
 	def.paperdoll_layer = d.get("paperdoll_layer", "")
+	def.effect = d.get("effect", "")
 	def.icon = d.get("icon", def_id)
 	def.world_sprite = d.get("world_sprite", "")
 	def.sounds = d.get("sounds", {})

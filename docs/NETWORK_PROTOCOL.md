@@ -1,5 +1,16 @@
 # Multiplayer: Protocol, Authority and Replication (Slices 003–004)
 
+> **Protocol version 3 (Slice 005).** Version 3 adds creatures and combat:
+> - `welcome.npcs` is a list of `[id, archetype, x, y, facing, hp, hp_max, dead]`.
+> - `state.players` entries gain `hp_pct` and `dead`.
+> - `state.npcs` is a list of `[id, x, y, facing, moving, hp_pct, dead]`.
+> - New commands: `attack {target}`, `stop_attack`, `respawn`.
+> - New events: `combat` (swing, projectile, damage, miss, status, death,
+>   respawn, aggro, retreat, disengage), `vitals`, `skill`, `entity_spawned`
+>   and `entity_removed` (creature remains).
+>
+> See [COMBAT.md](COMBAT.md) for the authority flow.
+>
 > **Protocol version 2 (Slice 004).** Version 2 adds the persistent-realm
 > messages below and DTLS on every connection. A v1 client is rejected with a
 > `bad_version` error. Persistence and accounts are covered in

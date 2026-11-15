@@ -7,6 +7,7 @@ const MAP := "res://data/maps/homestead.json"
 const P := "player"
 
 var failures := 0
+var _finished := false
 var checks := 0
 var current := ""
 
@@ -21,7 +22,11 @@ func _init() -> void:
 	for t in tests:
 		current = t
 		var before := failures
+		_finished = false
 		call(t)
+		if not _finished:
+			failures += 1
+			print("   x [%s] test did not run to completion (script error)" % t)
 		print("%s %s" % ["PASS" if failures == before else "FAIL", t])
 	print("\n%d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)
@@ -111,6 +116,7 @@ func test_01_door() -> void:
 	s.player_pos = door.pos + Vector2(4, 0)
 	r = cmd_use(s, "cottage_door")
 	check(not r.ok and r.code == "too_far" and not door.open, "door out of range fails, unchanged")
+	_finished = true
 
 
 func test_02_pickup() -> void:
@@ -128,11 +134,12 @@ func test_02_pickup() -> void:
 	check(loc["kind"] == "container" and loc["container"] == "player.backpack", "sword in backpack")
 	check(not s.items.world_items().has(sword), "sword removed from world")
 	check(invariants_ok(s), "invariants")
+	_finished = true
 
 
 func test_03_equip() -> void:
 	var s := new_sim()
-	var sword := find(s, "iron_sword")
+	var sword := find(s, "iron_sword", "world")
 	s.player_pos = s.items.location(sword)["pos"] + Vector2(0.5, 0)
 	cmd_use(s, "item:%d" % sword)
 	var r := s.interaction.submit(InteractionCommand.use_item(P, sword, s.items.location(sword)))
@@ -147,6 +154,7 @@ func test_03_equip() -> void:
 	check(r.ok and s.items.location(sword)["slot"] == 4, "unequip into a chosen backpack slot")
 	check(s.items.equipped(P, "main_hand") == 0, "main hand empty")
 	check(invariants_ok(s), "invariants")
+	_finished = true
 
 
 func _open_chest(s: WorldSim) -> void:
@@ -168,6 +176,7 @@ func test_04_chest_transfer() -> void:
 	check(r.ok and s.items.location(apples)["container"] == "cottage_chest.contents", "backpack -> chest")
 	check(totals(s) == before, "no items created or lost")
 	check(invariants_ok(s), "invariants")
+	_finished = true
 
 
 func test_05_invalid() -> void:
@@ -201,6 +210,7 @@ func test_05_invalid() -> void:
 		ev_failed = ev_failed or e["type"] == "failed"
 	check(ev_failed, "failure produces a feedback event")
 	check(totals(s) == before and invariants_ok(s), "failed commands changed nothing")
+	_finished = true
 
 
 func test_06_rapid_duplicate() -> void:
@@ -222,6 +232,7 @@ func test_06_rapid_duplicate() -> void:
 	var b := s.interaction.submit(c3).ok
 	check(a and not b, "second drop of the same pickup is rejected as stale")
 	check(totals(s) == before and invariants_ok(s), "no duplication after rapid input")
+	_finished = true
 
 
 func test_06b_random_fuzz() -> void:
@@ -260,6 +271,7 @@ func test_06b_random_fuzz() -> void:
 				print("      first violation at step %d: %s" % [i, JSON.stringify(r.command.to_wire())])
 	check(bad == 0, "3000 random transfers keep totals and invariants (%d ok)" % ok_count)
 	check(ok_count > 300, "fuzz exercised many successful transfers (%d)" % ok_count)
+	_finished = true
 
 
 func test_stack_split_merge() -> void:
@@ -275,6 +287,7 @@ func test_stack_split_merge() -> void:
 	r = cmd_move(s, find(s, "healing_potion"), ItemLocation.container("player.backpack"), 1)
 	check(r.ok, "moving qty 1 of a single item is the whole item")
 	check(invariants_ok(s), "invariants")
+	_finished = true
 
 
 func test_capacity() -> void:
@@ -291,6 +304,7 @@ func test_capacity() -> void:
 	var a2 := s.items.spawn("red_apple", 1, ItemLocation.container("player.backpack"))
 	r = cmd_move(s, a2, ItemLocation.container("cottage_chest.contents"))
 	check(r.ok and s.items.item(apples).quantity == 4, "stackable still merges into a full chest")
+	_finished = true
 
 
 func test_auto_close() -> void:
@@ -300,17 +314,19 @@ func test_auto_close() -> void:
 	s.interaction.update(0.016)
 	check(not s.interaction.is_open(P, "cottage_chest.contents"), "walking away closes the chest")
 	check(not s.entities["cottage_chest"].open, "lid closes")
+	_finished = true
 
 
 func test_wire_roundtrip() -> void:
 	var s := new_sim()
-	var sword := find(s, "iron_sword")
+	var sword := find(s, "iron_sword", "world")
 	s.player_pos = s.items.location(sword)["pos"] + Vector2(0.5, 0.2)
 	var c := InteractionCommand.transfer(P, sword, s.items.location(sword), ItemLocation.container("player.backpack", 3))
 	var wire := JSON.stringify(c.to_wire())
 	var back := InteractionCommand.from_wire(JSON.parse_string(wire))
 	check(s.interaction.submit(back).ok, "command survives JSON round trip: %s" % wire)
 	check(s.items.location(sword)["slot"] == 3, "applied as sent")
+	_finished = true
 
 
 func test_definition_of_done() -> void:
@@ -332,7 +348,7 @@ func test_definition_of_done() -> void:
 	walk_to(s, Vector2(door.pos.x + 1.5, door.pos.y))
 	check(s.player_pos.x > door.pos.x + 1.0, "DoD: walked back out (%.2f, %.2f)" % [s.player_pos.x, s.player_pos.y])
 	check(not s.interaction.is_open(P, "cottage_chest.contents"), "DoD: chest auto-closed on leaving")
-	var sword := find(s, "iron_sword")
+	var sword := find(s, "iron_sword", "world")
 	var spos: Vector2 = s.items.location(sword)["pos"]
 	s.player_pos = spos + Vector2(0.7, -0.3)
 	check(cmd_use(s, "item:%d" % sword).ok, "DoD: sword picked up")
@@ -341,3 +357,5 @@ func test_definition_of_done() -> void:
 	check(cmd_move(s, sword, ItemLocation.world(s.player_pos + Vector2(0.6, 0.4))).ok, "DoD: dropped from hand to ground")
 	check(s.items.location(sword)["kind"] == "world" and s.items.equipped(P, "main_hand") == 0, "DoD: sword back in world")
 	check(totals(s) == before and invariants_ok(s), "DoD: conservation")
+
+	_finished = true

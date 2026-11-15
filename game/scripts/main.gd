@@ -14,6 +14,13 @@ var connect_win := ConnectWindow.new()
 var login_win := LoginWindow.new()
 var char_win := CharacterWindow.new()
 var name_labels: Dictionary = {}     # actor -> Label
+# Slice 005 combat UI
+var vitals_win := CombatUI.VitalsWindow.new()
+var target_win := CombatUI.TargetWindow.new()
+var skills_win := CombatUI.SkillsWindow.new()
+var death_win := CombatUI.DeathWindow.new()
+var target_id := ""
+var show_damage_numbers := true
 var _authority: Object
 var asset_sets: Dictionary = {}
 var active := 0
@@ -106,6 +113,17 @@ func _ready() -> void:
 	add_child(connect_win)
 	connect_win.visible = false
 	_setup_account_ui()
+	for w in [vitals_win, target_win, skills_win, death_win]:
+		add_child(w)
+	vitals_win.close_requested.connect(func(): vitals_win.visible = false)
+	target_win.close_requested.connect(func(): _set_target(""))
+	skills_win.close_requested.connect(func(): skills_win.visible = false)
+	death_win.close_requested.connect(func(): pass)
+	death_win.respawn_btn.pressed.connect(func(): game_ui.submit(InteractionCommand.make("respawn", sim.local_actor, {})))
+	skills_win.visible = false
+	target_win.visible = false
+	death_win.visible = false
+	_place_combat_windows.call_deferred()
 	_place_connect_window.call_deferred()
 	if cli.has("connect"):
 		var hp: PackedStringArray = String(cli["connect"]).split(":")
@@ -241,6 +259,122 @@ func _on_left_world(reason: String) -> void:
 	net.send_chars("list")
 
 
+func _place_combat_windows() -> void:
+	vitals_win.fit()
+	vitals_win.position = Vector2(12, 120)
+	target_win.fit()
+	target_win.position = Vector2(12, 120 + vitals_win.size.y + 8)
+	skills_win.position = Vector2(12, 420)
+
+
+## Selection: any creature or other player becomes the current target.
+func _set_target(id: String) -> void:
+	target_id = id
+	for v in views:
+		v.target_id = id
+	target_win.visible = id != ""
+	if id != "":
+		target_win.fit()
+
+
+func _attack_target() -> void:
+	if target_id.begins_with("n:"):
+		game_ui.submit(InteractionCommand.make("attack", sim.local_actor, {"target": target_id}))
+
+
+func _combat_name(id: String) -> String:
+	if sim.npcs.has(id):
+		return sim.npcs[id].display_name()
+	if sim.players.has(id):
+		return sim.players[id].display_name
+	return id
+
+
+func _update_combat_ui() -> void:
+	var me: PlayerState = sim.players.get(sim.local_actor)
+	if me == null or me.combat == null:
+		return
+	var tc: Combatant = sim.combat.combatant(target_id) if target_id != "" else null
+	if target_id != "" and tc == null:
+		_set_target("")            # target despawned / left
+	vitals_win.refresh(me.combat, _combat_name(me.combat.target) if me.combat.target != "" else "")
+	if target_id != "" and tc:
+		target_win.show_target(_combat_name(target_id), target_id.begins_with("n:"), tc, me.combat.target == target_id)
+	if death_win.visible != me.combat.dead:
+		death_win.visible = me.combat.dead
+		if me.combat.dead:
+			death_win.fit()
+			death_win.position = Vector2(size.x * 0.5 - death_win.size.x * 0.5, size.y * 0.3)
+			move_child(death_win, -1)
+	if skills_win.visible:
+		skills_win.refresh(me.skills, _skill_names())
+
+
+func _skill_names() -> Dictionary:
+	var out := {}
+	for k in sim.combat.data["skills"]:
+		out[k] = sim.combat.data["skills"][k]["name"]
+	return out
+
+
+const COMBAT_SOUNDS := {"hunting_bow": "bow_fire", "wolf": "wolf_bite"}
+
+
+## Present one authoritative combat event: animation, sound, numbers, journal.
+func _present_combat(e: Dictionary) -> void:
+	for v in views:
+		v.on_combat_event(e)
+	var me := sim.local_actor
+	var kind: String = e["kind"]
+	var src: String = e.get("source", "")
+	var tgt: String = e.get("target", "")
+	var pos: Vector2 = e.get("pos", Vector2.INF)
+	match kind:
+		"swing":
+			var w: String = e.get("weapon", "")
+			audio.play(COMBAT_SOUNDS.get(w, "sword_swing") if w != "hunting_bow" else "bow_fire", pos)
+		"damage":
+			var delay := float(e.get("delay", 0.0))
+			var electric: bool = e.get("category", "") == "electrical"
+			var snd := "lightning_zap" if electric else ("player_hurt" if tgt == me else ("hit_bone" if tgt.begins_with("n:skeleton") else "hit_flesh"))
+			var amount := int(e["amount"])
+			var show := func():
+				audio.play(snd, pos)
+				if show_damage_numbers:
+					var col := Color(0.55, 0.85, 1.0) if electric else (Color(1.0, 0.45, 0.35) if tgt == me else Color(1.0, 0.9, 0.7))
+					float_text(str(amount), _entity_pos(tgt), 70.0, col, false)
+			if delay > 0.0:
+				get_tree().create_timer(delay).timeout.connect(show)
+			else:
+				show.call()
+		"miss":
+			audio.play("miss_whoosh", pos)
+			if show_damage_numbers and (src == me or tgt == me):
+				float_text("miss", _entity_pos(tgt), 70.0, UISkin.TEXT_DIM, false)
+		"death":
+			if tgt.begins_with("n:") and sim.npcs.has(tgt):
+				audio.play(sim.npcs[tgt].def["sounds"]["death"], pos)
+				_journal("%s is slain." % _combat_name(tgt), UISkin.GOLD)
+			elif tgt == me:
+				audio.play("player_hurt", pos)
+				_journal("You have been defeated.", UISkin.BAD)
+			if tgt == target_id:
+				_set_target("")
+		"respawn":
+			if tgt == me:
+				_journal("You return to the homestead.", UISkin.GOLD)
+		"retreat":
+			_journal("%s tries to flee!" % _combat_name(src), UISkin.TEXT_DIM)
+
+
+func _entity_pos(id: String) -> Vector2:
+	if sim.npcs.has(id):
+		return sim.npcs[id].render_pos
+	if sim.players.has(id):
+		return sim.players[id].render_pos
+	return Vector2.INF
+
+
 func _place_connect_window() -> void:
 	connect_win.fit()
 	connect_win.position = Vector2(size.x * 0.5 - connect_win.size.x * 0.5, 90)
@@ -315,6 +449,7 @@ func _build_hud() -> void:
 		"E  blade-energy preview      F5  hot-reload forged assets      F12  screenshot      H  hide help",
 		"Left click  select / name      Double-click  use (door, chest, pick up, equip)      Drag  move items",
 		"I  backpack      P  equipment      Shift+drag  move one from a stack      F2  UI scale      F9  realm connection",
+		"Click  select target      Double-click / Space  attack      Esc  stop      J  skills      N  damage numbers",
 	])
 	help_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 
@@ -428,6 +563,18 @@ func _input(event: InputEvent) -> void:
 		KEY_F2:
 			ui_scale_i = (ui_scale_i + 1) % UI_SCALES.size()
 			set_ui_scale(UI_SCALES[ui_scale_i])
+		KEY_SPACE:
+			_attack_target()
+		KEY_ESCAPE:
+			game_ui.submit(InteractionCommand.make("stop_attack", sim.local_actor, {}))
+			_set_target("")
+		KEY_J:
+			skills_win.visible = not skills_win.visible
+			if skills_win.visible:
+				skills_win.refresh(sim.players[sim.local_actor].skills, _skill_names())
+				move_child(skills_win, -1)
+		KEY_N:
+			show_damage_numbers = not show_damage_numbers
 		KEY_F12:
 			_screenshot("user://screenshot_%d.png" % Time.get_unix_time_from_system())
 
@@ -484,11 +631,17 @@ func _process(dt: float) -> void:
 		sim.step_player(dt, dir, run)
 		sim.step_sheep(dt)
 		sim.interaction.update(dt)
+		sim.step_combat(dt)
+		for n in sim.npcs.values():
+			n.render_pos = n.pos
+			n.render_facing = n.facing
+			n.render_moving = n.moving
 	audio.listener_pos = sim.player_pos
 	for v in views:
 		v.sync(dt)
 	_update_floaters(dt)
 	_update_name_labels()
+	_update_combat_ui()
 	journal.position = Vector2(12, size.y - help_panel.size.y - journal.size.y - 18) if help_panel.visible else Vector2(12, size.y - journal.size.y - 12)
 	_update_hud()
 	help_panel.position = Vector2(10, size.y - help_panel.size.y - 10)
@@ -591,6 +744,10 @@ func pick_at(screen: Vector2) -> String:
 
 
 func entity_world_pos(id: String) -> Vector2:
+	if sim.npcs.has(id):
+		return sim.npcs[id].render_pos
+	if sim.players.has(id):
+		return sim.players[id].render_pos
 	if id.begins_with("item:"):
 		var loc := sim.items.location(int(id.substr(5)))
 		return loc["pos"] if loc.get("kind", "") == "world" else Vector2.INF
@@ -598,7 +755,11 @@ func entity_world_pos(id: String) -> Vector2:
 
 
 func entity_range(id: String) -> float:
-	return InteractionSystem.ITEM_RANGE if id.begins_with("item:") else sim.entities[id].use_range()
+	if sim.npcs.has(id) or sim.players.has(id):
+		return float(sim.combat.weapon_of(sim.local_actor)["range"]) + 0.4   # attack reach
+	if sim.entities.has(id):
+		return sim.entities[id].use_range()
+	return InteractionSystem.ITEM_RANGE
 
 
 func update_hover(screen: Vector2) -> void:
@@ -627,12 +788,20 @@ func entity_name(id: String) -> String:
 func select_entity(id: String) -> void:
 	for v in views:
 		v.selected = id
+	if id.begins_with("n:") or (sim.players.has(id) and id != sim.local_actor):
+		_set_target(id)
 	if id != "":
 		float_text(entity_name(id), entity_world_pos(id), 40.0, UISkin.GOLD)
 		audio.play("ui_click")
 
 
 func use_entity(id: String) -> void:
+	if id.begins_with("n:"):
+		_set_target(id)
+		_attack_target()
+		return
+	if sim.players.has(id):
+		return
 	game_ui.submit(InteractionCommand.use_entity(sim.local_actor, id))
 
 
@@ -669,16 +838,17 @@ func drop_on_world(screen: Vector2, data: Dictionary) -> void:
 
 # --- feedback text ------------------------------------------------------------
 
-func float_text(text: String, world_pos: Vector2, height_px: float, color: Color) -> void:
+func float_text(text: String, world_pos: Vector2, height_px: float, color: Color, journal := true) -> void:
 	if text == "":
 		return
 	if world_pos == Vector2.INF:
 		_journal(text, color)
 		return
-	var l := UISkin.label(text, color, 14)
+	var l := UISkin.label(text, color, 14 if journal else 12)
 	float_layer.add_child(l)
 	floaters.append([l, world_pos, height_px, 0.0])
-	_journal(text, color)
+	if journal:
+		_journal(text, color)
 
 
 func _update_floaters(dt: float) -> void:
@@ -705,6 +875,13 @@ func _journal(text: String, color := UISkin.TEXT) -> void:
 
 func _journal_event(e: Dictionary) -> void:
 	match e["type"]:
+		"combat":
+			_present_combat(e)
+		"skill":
+			if e.get("actor") == sim.local_actor and not e.get("initial", false):
+				_journal("Your %s skill has increased to %.1f." % [e["name"], float(e["value"])], UISkin.GOLD)
+				if skills_win.visible:
+					skills_win.refresh(sim.players[sim.local_actor].skills, _skill_names(), e["skill"])
 		"item_moved":
 			var d := sim.items.def(e["def"])
 			var fk: String = e["from"]["kind"]

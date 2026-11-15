@@ -38,13 +38,28 @@ func is_open(actor: String, cid: String) -> bool:
 
 
 const COMMAND_TYPES: PackedStringArray = ["use", "transfer", "use_item", "close_container",
-	"pick_up", "drop", "equip", "unequip", "set_door"]
+	"pick_up", "drop", "equip", "unequip", "set_door", "attack", "stop_attack", "respawn"]
+const COMBAT_COMMANDS: PackedStringArray = ["attack", "stop_attack", "respawn"]
 
 
 func submit(cmd: InteractionCommand) -> CommandResult:
 	var r: CommandResult
 	if not sim.players.has(cmd.actor):
 		r = CommandResult.failure(cmd, "no_actor", "")
+		command_resolved.emit(r)
+		return r
+	var ps: PlayerState = sim.players[cmd.actor]
+	if COMBAT_COMMANDS.has(cmd.type):
+		r = sim.combat.handle(cmd)
+		for e in r.events:
+			event_emitted.emit(e)
+		if not r.ok and r.message != "":
+			event_emitted.emit({"type": "failed", "actor": cmd.actor, "code": r.code, "message": r.message, "pos": sim.actor_pos(cmd.actor)})
+		command_resolved.emit(r)
+		return r
+	if ps.combat and ps.combat.dead and cmd.type != "close_container":
+		r = CommandResult.failure(cmd, "dead", "You cannot do that while defeated.")
+		event_emitted.emit({"type": "failed", "actor": cmd.actor, "code": r.code, "message": r.message, "pos": sim.actor_pos(cmd.actor)})
 		command_resolved.emit(r)
 		return r
 	match cmd.type:
@@ -218,7 +233,7 @@ func _use(cmd: InteractionCommand) -> CommandResult:
 			ent.open = not ent.open
 			events.append({"type": "door_changed", "id": ent.id, "open": ent.open})
 			events.append({"type": "sound", "name": ent.def["sounds"]["open" if ent.open else "close"], "pos": ent.pos})
-		"chest":
+		"chest", "corpse":
 			var already := is_open(cmd.actor, ent.container_id)
 			if not already:
 				open_containers.get_or_add(cmd.actor, []).append(ent.container_id)

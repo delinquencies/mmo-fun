@@ -34,6 +34,14 @@ In the client, **F9** opens the realm panel:
 The temporary-session mode from Slice 003 is still available:
 `tools/net/run_server.sh` without `--persistent`.
 
+## Slice 005 combat tests
+
+| Suite | Command | Checks |
+|---|---|---|
+| Combat rules (offline authority, deterministic) | `godot --headless --path game --script res://tests/combat_tests.gd` | 60 |
+| Combat over the network with persistence: co-op wolf kill, single death, single loot, skills persisted across a restart, abuse | Part of `tests/persist/run.sh` (t10–t12) | see PROJECT_STATE |
+| GUI combat walkthrough: armory, Stormcaller, wolf, remains, bow vs. skeleton, defeat and respawn | `xvfb-run godot --rendering-driver opengl3 --path game -- --scenario=combat --shot_dir=/tmp/c --nohelp` | 16 |
+
 ## Slice 004 automated acceptance
 
 | Suite | Command | Checks |

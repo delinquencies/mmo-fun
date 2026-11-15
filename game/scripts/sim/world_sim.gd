@@ -52,6 +52,10 @@ var entities: Dictionary = {}               # entity id -> Interactable
 var interaction: InteractionSystem
 var interactable_defs: Dictionary
 
+# Slice 005: creatures + combat
+var npcs: Dictionary = {}                   # "n:<id>" -> NpcState
+var combat: CombatSystem
+
 # sheep
 var sheep: Array = []
 var sheep_pen := Rect2()
@@ -114,12 +118,31 @@ func _load_interactables(spawn_items := true) -> void:
 	for g in (map_data.get("ground_items", []) if spawn_items else []):
 		items.spawn(g["def"], int(g.get("qty", 1)), ItemLocation.world(Vector2(g["x"], g["y"])))
 	interaction = InteractionSystem.new(self)
+	combat = CombatSystem.new(self)
+	for n in map_data.get("npcs", []):
+		var npc := NpcState.new()
+		npc.id = "n:" + str(n["id"])
+		npc.archetype = n["archetype"]
+		npc.def = combat.data["creatures"][npc.archetype]
+		npc.spawn = Vector2(n["x"], n["y"])
+		npc.pos = npc.spawn
+		npc.render_pos = npc.pos
+		npc.patrol = n.get("patrol", [])
+		npc.combat = Combatant.new(npc.id)
+		npc.combat.hp_max = npc.def["hp"]
+		npc.combat.hp = npc.combat.hp_max
+		npc.combat.attack = npc.def["attack"]
+		npc.combat.defense = npc.def["defense"]
+		npcs[npc.id] = npc
 
 
 ## Create a character with its backpack and equipment.
 func add_player(actor: String, display_name: String, pos: Vector2, appearance: Dictionary = {}) -> PlayerState:
 	var ps := PlayerState.new(actor, display_name, pos)
 	ps.appearance = appearance
+	if combat:
+		ps.combat = combat.new_player_combatant(actor)
+		ps.skills = combat.default_skills()
 	players[actor] = ps
 	if not items.containers.has("%s.backpack" % actor):
 		items.add_container(ContainerComponent.new("%s.backpack" % actor, "Backpack", actor, 15, 5))
@@ -183,6 +206,44 @@ func _free_drop_spot(p: Vector2) -> Vector2:
 func actor_pos(actor: String) -> Vector2:
 	var ps: PlayerState = players.get(actor)
 	return ps.pos if ps else Vector2.INF
+
+
+## Line of sight / projectile path: solid obstacles and closed doors block it,
+## water and actors do not.
+func line_clear(a: Vector2, b: Vector2) -> bool:
+	var d := a.distance_to(b)
+	var steps := int(ceil(d / 0.2))
+	for k in range(1, steps):
+		if _solid_at(a.lerp(b, float(k) / steps), 0.05):
+			return false
+	return true
+
+
+func _solid_at(p: Vector2, radius: float) -> bool:
+	for o in obstacles:
+		if o.has("circle"):
+			var c: Vector3 = o["circle"]
+			if p.distance_squared_to(Vector2(c.x, c.y)) < (c.z + radius) * (c.z + radius):
+				return true
+		else:
+			var r: Rect2 = o["rect"]
+			var q := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
+			if p.distance_squared_to(q) < radius * radius:
+				return true
+	for id in entities:
+		var ent: Interactable = entities[id]
+		if ent.kind == "corpse":
+			continue
+		for r in ent.collision_rects():
+			var q2 := Vector2(clampf(p.x, r.position.x, r.end.x), clampf(p.y, r.position.y, r.end.y))
+			if p.distance_squared_to(q2) < radius * radius:
+				return true
+	return false
+
+
+func step_combat(dt: float) -> void:
+	if combat:
+		combat.update(dt)
 
 
 func corner(i: int, j: int) -> int:
@@ -255,6 +316,9 @@ func step_actor(actor: String, dt: float, move_dir: Vector2, run: bool, facing_h
 	if ps == null:
 		return
 	ps.running = run
+	if ps.combat and ps.combat.dead:
+		ps.moving = false
+		return
 	if move_dir.length_squared() > 0.0001:
 		var d := move_dir.normalized()
 		ps.facing = facing_hint if facing_hint >= 0 else Iso.dir_index(d)

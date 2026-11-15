@@ -1,0 +1,25 @@
+PASS  armory chest opened
+PASS  Stormcaller equipped by double-click
+-- step: c1_stormcaller_idle  (player 21.09, 13.64)
+PASS  wolf selected: target window shows it
+PASS  double-click engages the wolf
+-- step: c2_lightning_strike  (player 11.53, 24.95)
+PASS  wolf defeated
+PASS  lightning discharge captured on screen
+-- step: c3_wolf_remains  (player 11.53, 24.95)
+PASS  remains opened
+PASS  pelt dragged into the backpack
+PASS  skills window opens with J
+-- step: c4_loot_and_skills  (player 12.08, 25.48)
+PASS  hunting bow equipped
+PASS  skeleton selected
+PASS  Space attacks the selected target
+PASS  arrow in flight
+-- step: c5_bow_vs_skeleton  (player 17.19, 30.34)
+PASS  the bandit defeats the player
+PASS  defeat window shown
+-- step: c6_defeated  (player 10.69, 32.59)
+PASS  returned to the homestead
+-- step: c7_respawned  (player 17.20, 12.40)
+
+scenario combat: 16 checks, 0 failures

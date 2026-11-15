@@ -23,6 +23,19 @@ gameplay resolution before any MMO infrastructure is built.
 | `docs/PROTOTYPE_STATUS.md` | Slice 001 report: calibration findings and open art decisions |
 | `game/tests/run_tests.gd` | Headless tests for the item/interaction authority |
 
+## Combat (Slice 005)
+
+The woodland clearing south-west of the cottage holds a wolf, a skeleton
+guard and a bandit. The armory chest by the path holds a hunting bow,
+Stormcaller (the enchanted lightning sword) and an iron sword.
+
+Controls:
+- **Click** to select a target.
+- **Double-click** or **Space** to attack; **Esc** to stop.
+- **J** for skills, **N** to toggle damage numbers.
+
+Design, data and rules: [docs/COMBAT.md](docs/COMBAT.md).
+
 ## Persistent realm (Slice 004)
 
 Accounts, characters, inventories, equipment and the shared chest survive

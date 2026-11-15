@@ -33,3 +33,10 @@
   or commit passwords, hashes, tokens or `.dev/` secrets. Docs: `docs/PERSISTENCE.md`.
 - Run `tests/keeper/run.sh` and `tests/persist/run.sh` after touching
   `tools/keeper/`, `db/`, or server persistence code.
+- Combat (Slice 005): health, stamina, mana, death and skills change ONLY in
+  `CombatSystem` (`apply_damage` is the single damage path). Balance values
+  live in `game/data/combat.json`, not in scripts. Docs: `docs/COMBAT.md`.
+  Run `godot --headless --path game --script res://tests/combat_tests.gd`
+  after touching `game/scripts/sim/combat/`.
+- Test runners fail any test that does not reach its end (`_finished`); keep
+  `_finished = true` as the last line of new test functions.

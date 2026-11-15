@@ -164,6 +164,14 @@ func find(def_id: String) -> int:
 	return 0
 
 
+## Item of `def_id` lying on the ground (the armory chest holds another sword).
+func find_on_ground(def_id: String) -> int:
+	for uid in main.sim.items.world_items():
+		if main.sim.items.items[uid].def_id == def_id:
+			return uid
+	return 0
+
+
 func totals() -> Dictionary:
 	var t := {}
 	for d in main.sim.items.defs:
@@ -260,6 +268,118 @@ func _until(cond: Callable, timeout: float) -> bool:
 			return false
 		await frames(1)
 	return true
+
+
+# --- Slice 005 combat walkthrough (offline world, real UI input) ---------------------
+
+func npc_screen(id: String) -> Vector2:
+	var v: WorldView = main.views[0]
+	var nv: ActorSprite = v.npc_views[id]
+	var vp: SubViewport = main.cells[0].get_child(0).get_child(0)
+	return main.cells[0].global_position + vp.get_canvas_transform() * (nv.position + Vector2(0, -24) * v.aset.tile_w / 64.0)
+
+
+func _run_combat() -> void:
+	await frames(20)
+	var sim: WorldSim = main.sim
+	var ui: GameUI = main.game_ui
+	var armory: Interactable = sim.entities["armory_chest"]
+	await walk_to(armory.pos + Vector2(0.8, 0.3))
+	await double_click(entity_screen("armory_chest"))
+	check(await _until(func(): return ui.chest_windows.has(armory.container_id), 3.0), "armory chest opened")
+	await frames(6)
+	var cw: ContainerWindow = ui.chest_windows[armory.container_id]
+	var storm := 0
+	for sl in cw.slots:
+		if sl.uid and sim.items.item(sl.uid).def_id == "lightning_sword":
+			storm = sl.uid
+	await double_click(slot_screen(slot_of(cw, storm)))
+	check(await _until(func(): return sim.items.equipped("player", "main_hand") == storm, 3.0), "Stormcaller equipped by double-click")
+	await seconds(0.6)
+	main.zoom_i = 4
+	main._apply_view_settings()
+	await shot("c1_stormcaller_idle")
+	main.zoom_i = 3
+	main._apply_view_settings()
+	ui._open_container(armory.container_id)
+	ui.chest_windows[armory.container_id].close_requested.emit()
+	for wp in [Vector2(16.4, 16.8), Vector2(13.2, 22.4)]:
+		await walk_to(wp)
+	var wolf: NpcState = sim.npcs["n:wolf_1"]
+	await walk_to(wolf.spawn + Vector2(3.0, -1.5))
+	await _until(func(): return wolf.pos.distance_to(sim.player_pos) < 4.0, 4.0)
+	await click(npc_screen("n:wolf_1"))
+	check(main.target_id == "n:wolf_1" and main.target_win.visible, "wolf selected: target window shows it")
+	await double_click(npc_screen("n:wolf_1"))
+	check(sim.players["player"].combat.target == "n:wolf_1", "double-click engages the wolf")
+	var got_shot := false
+	var t0 := Time.get_ticks_msec()
+	while not wolf.combat.dead and Time.get_ticks_msec() - t0 < 30000:
+		var d: Vector2 = wolf.pos - sim.player_pos
+		move_target = sim.player_pos + d * 0.5 if d.length() > 1.1 else Vector2.INF
+		await frames(1)
+		if not got_shot and main.views[0].fx_layer.get_children().any(func(n): return n is CombatFX.Bolt):
+			got_shot = true
+			await shot("c2_lightning_strike")
+	move_target = Vector2.INF
+	check(wolf.combat.dead, "wolf defeated")
+	check(got_shot, "lightning discharge captured on screen")
+	await seconds(0.8)
+	await shot("c3_wolf_remains")
+	var corpse := ""
+	for id in sim.entities:
+		if sim.entities[id].kind == "corpse":
+			corpse = id
+	await walk_to(sim.entities[corpse].pos + Vector2(0.7, 0.3))
+	await double_click(entity_screen(corpse))
+	check(await _until(func(): return ui.chest_windows.has(sim.entities[corpse].container_id), 3.0), "remains opened")
+	await frames(6)
+	var lw: ContainerWindow = ui.chest_windows[sim.entities[corpse].container_id]
+	var pelt: int = lw.slots[0].uid
+	await drag(slot_screen(lw.slots[0]), slot_screen(ui.backpack.slots[6]))
+	check(sim.items.location(pelt).get("container", "") == "player.backpack", "pelt dragged into the backpack")
+	await key(KEY_J)
+	check(main.skills_win.visible, "skills window opens with J")
+	await seconds(0.5)
+	await shot("c4_loot_and_skills")
+	# bow vs. the skeleton guard
+	var bow := 0
+	for uid in sim.items.items:
+		if sim.items.item(uid).def_id == "hunting_bow":
+			bow = uid
+	sim.items._vacate(bow)
+	sim.items._place(bow, ItemLocation.container("player.backpack", 9))
+	sim.items.changed.emit()
+	await double_click(slot_screen(ui.backpack.slots[9]))
+	check(await _until(func(): return sim.items.equipped("player", "main_hand") == bow, 3.0), "hunting bow equipped")
+	var skel: NpcState = sim.npcs["n:skeleton_1"]
+	await walk_to(Vector2(16.6, 24.6))
+	await walk_to(Vector2(17.2, 30.4))      # open ground, ~5 tiles from the guard post, clear line of sight
+	for i in 4:      # the guard may be walking: click until the selection registers
+		await click(npc_screen("n:skeleton_1"))
+		if main.target_id == "n:skeleton_1":
+			break
+	check(main.target_id == "n:skeleton_1", "skeleton selected")
+	await key(KEY_SPACE)
+	check(sim.players["player"].combat.target == "n:skeleton_1", "Space attacks the selected target")
+	var arrow := await _until(func(): return main.views[0].fx_layer.get_children().any(func(n): return n is CombatFX.Arrow), 6.0)
+	check(arrow, "arrow in flight")
+	await shot("c5_bow_vs_skeleton")
+	await _until(func(): return skel.combat.dead or sim.players["player"].combat.dead, 30.0)
+	# a defeat, on purpose: the bandit
+	sim.players["player"].combat.hp = 3.0
+	var bandit: NpcState = sim.npcs["n:bandit_1"]
+	await walk_to(bandit.pos + Vector2(2.0, -1.0))
+	check(await _until(func(): return sim.players["player"].combat.dead, 20.0), "the bandit defeats the player")
+	await seconds(1.0)
+	check(main.death_win.visible, "defeat window shown")
+	await shot("c6_defeated")
+	await press(main.death_win.respawn_btn)
+	check(await _until(func(): return not sim.players["player"].combat.dead, 3.0), "returned to the homestead")
+	await seconds(0.8)
+	await shot("c7_respawned")
+	say("\nscenario %s: %d checks, %d failures" % [name_, checks, fails])
+	get_tree().quit(1 if fails else 0)
 
 
 # --- Slice 004 Definition of Done (persistent realm, UI-driven) -------------------
@@ -408,6 +528,9 @@ func _run() -> void:
 	if name_.begins_with("dod_"):
 		await _run_dod()
 		return
+	if name_ == "combat":
+		await _run_combat()
+		return
 	if name_ == "mp_alice":
 		await _run_mp_alice()
 		return
@@ -494,7 +617,7 @@ func _run() -> void:
 	await shot("05_too_far")
 
 	# ---------------- Test 02: pick up sword ----------------
-	var sword := find("iron_sword")
+	var sword := find_on_ground("iron_sword")
 	var spos: Vector2 = store.location(sword)["pos"]
 	await walk_to(spos + Vector2(0.7, -0.2))
 	await mouse_to(entity_screen("item:%d" % sword))

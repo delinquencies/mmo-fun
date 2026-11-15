@@ -1,16 +1,119 @@
 {
  "_comment": "event name -> file in res://assets/audio/ (placeholders from tools/forge/sfx.py). Replace files or remap here.",
- "door_open": {"file": "door_open.wav", "volume_db": -4},
- "door_close": {"file": "door_close.wav", "volume_db": -4},
- "chest_open": {"file": "chest_open.wav", "volume_db": -4},
- "chest_close": {"file": "chest_close.wav", "volume_db": -6},
- "item_pickup": {"file": "item_pickup.wav", "volume_db": -6},
- "item_place": {"file": "item_place.wav", "volume_db": -6},
- "coins": {"file": "coins.wav", "volume_db": -8},
- "equip": {"file": "equip.wav", "volume_db": -6},
- "unequip": {"file": "unequip.wav", "volume_db": -8},
- "invalid": {"file": "invalid.wav", "volume_db": -6},
- "window_open": {"file": "window_open.wav", "volume_db": -12},
- "window_close": {"file": "window_close.wav", "volume_db": -12},
- "ui_click": {"file": "ui_click.wav", "volume_db": -12}
+ "door_open": {
+  "file": "door_open.wav",
+  "volume_db": -4
+ },
+ "door_close": {
+  "file": "door_close.wav",
+  "volume_db": -4
+ },
+ "chest_open": {
+  "file": "chest_open.wav",
+  "volume_db": -4
+ },
+ "chest_close": {
+  "file": "chest_close.wav",
+  "volume_db": -6
+ },
+ "item_pickup": {
+  "file": "item_pickup.wav",
+  "volume_db": -6
+ },
+ "item_place": {
+  "file": "item_place.wav",
+  "volume_db": -6
+ },
+ "coins": {
+  "file": "coins.wav",
+  "volume_db": -8
+ },
+ "equip": {
+  "file": "equip.wav",
+  "volume_db": -6
+ },
+ "unequip": {
+  "file": "unequip.wav",
+  "volume_db": -8
+ },
+ "invalid": {
+  "file": "invalid.wav",
+  "volume_db": -6
+ },
+ "window_open": {
+  "file": "window_open.wav",
+  "volume_db": -12
+ },
+ "window_close": {
+  "file": "window_close.wav",
+  "volume_db": -12
+ },
+ "ui_click": {
+  "file": "ui_click.wav",
+  "volume_db": -12
+ },
+ "sword_swing": {
+  "file": "sword_swing.wav",
+  "volume_db": -8
+ },
+ "hit_flesh": {
+  "file": "hit_flesh.wav",
+  "volume_db": -6
+ },
+ "hit_bone": {
+  "file": "hit_bone.wav",
+  "volume_db": -6
+ },
+ "miss_whoosh": {
+  "file": "miss_whoosh.wav",
+  "volume_db": -10
+ },
+ "bow_fire": {
+  "file": "bow_fire.wav",
+  "volume_db": -6
+ },
+ "arrow_impact": {
+  "file": "arrow_impact.wav",
+  "volume_db": -8
+ },
+ "lightning_zap": {
+  "file": "lightning_zap.wav",
+  "volume_db": -6
+ },
+ "wolf_growl": {
+  "file": "wolf_growl.wav",
+  "volume_db": -6
+ },
+ "wolf_bite": {
+  "file": "wolf_bite.wav",
+  "volume_db": -6
+ },
+ "wolf_death": {
+  "file": "wolf_death.wav",
+  "volume_db": -6
+ },
+ "bone_rattle": {
+  "file": "bone_rattle.wav",
+  "volume_db": -8
+ },
+ "bone_collapse": {
+  "file": "bone_collapse.wav",
+  "volume_db": -6
+ },
+ "bandit_shout": {
+  "file": "bandit_shout.wav",
+  "volume_db": -6
+ },
+ "bandit_death": {
+  "file": "bandit_death.wav",
+  "volume_db": -6
+ },
+ "player_hurt": {
+  "file": "player_hurt.wav",
+  "volume_db": -6
+ },
+ "loot_open": {
+  "file": "loot_open.wav",
+  "volume_db": -8
+ }
 }

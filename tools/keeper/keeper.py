@@ -249,10 +249,11 @@ def op_logout(a):
 def _char_row(r):
     return {"id": r[0], "name": r[1], "appearance": r[2], "attributes": r[3], "region": r[4],
             "x": r[5], "y": r[6], "z": r[7], "facing": r[8],
-            "last_played_at": r[9].isoformat() if r[9] else None, "created_at": r[10].isoformat()}
+            "last_played_at": r[9].isoformat() if r[9] else None, "created_at": r[10].isoformat(),
+            "vitals": r[11] if len(r) > 11 else {}, "skills": r[12] if len(r) > 12 else {}}
 
 
-CHAR_COLS = "id, name, appearance, attributes, region, x, y, z, facing, last_played_at, created_at"
+CHAR_COLS = "id, name, appearance, attributes, region, x, y, z, facing, last_played_at, created_at, vitals, skills"
 
 
 def op_char_list(a):
@@ -321,23 +322,35 @@ def op_char_claim(a):
         r = cur.fetchone()
         if r is None:
             raise Fail("not_found")          # also for other accounts' characters: no enumeration
-        locked_by, fresh = r[11], r[12]
+        locked_by, fresh = r[13], r[14]
         if locked_by and locked_by != server and fresh:
             raise Fail("locked_elsewhere")
         cur.execute("UPDATE characters SET locked_by = %s, lock_heartbeat = now(), last_played_at = now()"
                     " WHERE id = %s", (server, cid))
         cur.execute(f"SELECT {ITEM_COLS} FROM items WHERE container_id = %s OR (loc_kind = 'equipment' AND character_id = %s)",
                     (f"c{cid}.backpack", cid))
-        return {"character": _char_row(r[:11]), "items": [_item_row(x) for x in cur.fetchall()]}
+        return {"character": _char_row(r[:13]), "items": [_item_row(x) for x in cur.fetchall()]}
     return tx(run)
+
+
+def _progress(a):
+    """Validated vitals/skills from the game server (numbers only, bounded)."""
+    vit = {k: float(v) for k, v in (a.get("vitals") or {}).items() if k in ("hp", "st", "mn") and 0 <= float(v) <= 10000}
+    if "dead" in (a.get("vitals") or {}):
+        vit["dead"] = bool(a["vitals"]["dead"])
+    sk = {k: round(float(v), 1) for k, v in (a.get("skills") or {}).items()
+          if re.match(r"^[a-z_]{2,32}$", k) and 0 <= float(v) <= 100}
+    return Jsonb(vit), Jsonb(sk)
 
 
 def op_char_release(a):
     cid, server = int(a["character_id"]), str(a["server_id"])
+    vit, sk = _progress(a)
     tx(lambda cur: cur.execute(
         "UPDATE characters SET x = %s, y = %s, facing = %s, locked_by = NULL, lock_heartbeat = NULL,"
-        " last_played_at = now() WHERE id = %s AND locked_by = %s",
-        (float(a["x"]), float(a["y"]), int(a["facing"]), cid, server)))
+        " last_played_at = now(), vitals = CASE WHEN %s::jsonb = '{}' THEN vitals ELSE %s END,"
+        " skills = skills || %s WHERE id = %s AND locked_by = %s",
+        (float(a["x"]), float(a["y"]), int(a["facing"]), vit, vit, sk, cid, server)))
     return {}
 
 
@@ -346,9 +359,11 @@ def op_checkpoint(a):
     def run(cur):
         n = 0
         for p in a.get("positions", []):
-            cur.execute("UPDATE characters SET x = %s, y = %s, facing = %s, lock_heartbeat = now()"
+            vit, sk = _progress(p)
+            cur.execute("UPDATE characters SET x = %s, y = %s, facing = %s, lock_heartbeat = now(),"
+                        " vitals = CASE WHEN %s::jsonb = '{}' THEN vitals ELSE %s END, skills = skills || %s"
                         " WHERE id = %s AND locked_by = %s",
-                        (float(p["x"]), float(p["y"]), int(p["facing"]), int(p["id"]), server))
+                        (float(p["x"]), float(p["y"]), int(p["facing"]), vit, vit, sk, int(p["id"]), server))
             n += cur.rowcount
         return {"saved": n}
     return tx(run)
@@ -380,6 +395,13 @@ def op_world_load(a):
                         " ON CONFLICT (id) DO UPDATE SET stackable = EXCLUDED.stackable, max_stack = EXCLUDED.max_stack,"
                         " equip_slot = EXCLUDED.equip_slot, data = EXCLUDED.data, updated_at = now()",
                         (d_id, d["stackable"], d["max_stack"], d.get("equip_slot") or None, Jsonb(d)))
+        # temporary objects (creature remains) never outlive the server run
+        cur.execute("DELETE FROM items WHERE container_id IN (SELECT c.id FROM containers c JOIN world_objects w"
+                    " ON w.id = c.world_object_id WHERE w.region = %s AND w.policy = 'temporary')", (region,))
+        cur.execute("DELETE FROM containers WHERE world_object_id IN (SELECT id FROM world_objects WHERE region = %s"
+                    " AND policy = 'temporary')", (region,))
+        cur.execute("DELETE FROM world_objects WHERE region = %s AND policy = 'temporary'", (region,))
+        purged = cur.rowcount
         cur.execute("SELECT setval('item_id_seq', GREATEST((SELECT COALESCE(max(id), 0) FROM items), 1000))")
         known = {o["id"] for o in objects} | {s["spawn_id"] for s in spawns}
         cur.execute("UPDATE world_objects SET orphaned = NOT (id = ANY(%s)) WHERE region = %s", (list(known), region))
@@ -425,7 +447,8 @@ def op_world_load(a):
         items = [_item_row(r) for r in cur.fetchall()]
         cur.execute("SELECT COALESCE(max(id), 1000) FROM items")
         max_id = cur.fetchone()[0]
-        return {"states": states, "items": items, "max_item_id": max_id, "orphaned": orphaned, "seeded": seeded}
+        return {"states": states, "items": items, "max_item_id": max_id, "orphaned": orphaned, "seeded": seeded,
+                "purged_temporary": purged}
     out = tx(run)
     log.info("world %s loaded: %d items, seeded %s, orphaned %s", region, len(out["items"]), out["seeded"], out["orphaned"])
     return out
@@ -483,6 +506,46 @@ def op_commit_items(a):
     return tx(run)
 
 
+def op_spawn_loot(a):
+    """Creature remains + generated loot, atomically, once per op_id."""
+    op_id = str(uuid.UUID(str(a["op_id"])))
+    region = str(a.get("region", "homestead"))
+    c = a["corpse"]
+
+    def run(cur):
+        cur.execute("SELECT 1 FROM item_ops WHERE op_id = %s", (op_id,))
+        if cur.fetchone():
+            return {"already": True}
+        cur.execute("INSERT INTO world_objects (id, region, kind, policy, state) VALUES (%s, %s, 'corpse', 'temporary', %s)",
+                    (c["id"], region, Jsonb({"creature": c.get("creature", ""), "x": c["x"], "y": c["y"]})))
+        cur.execute("INSERT INTO containers (id, kind, capacity, world_object_id) VALUES (%s, 'world', %s, %s)",
+                    (c["container"], int(c["capacity"]), c["id"]))
+        for it in a["items"]:
+            loc = it["loc"]
+            cur.execute("INSERT INTO items (id, def_id, quantity, loc_kind, container_id, slot) VALUES (%s, %s, %s, 'container', %s, %s)",
+                        (int(it["uid"]), it["def"], int(it["qty"]), loc["container"], int(loc["slot"])))
+        cur.execute("INSERT INTO item_ops (op_id, actor, kind, changes) VALUES (%s, %s, 'loot', %s)",
+                    (op_id, c["id"], Jsonb(a["items"])))
+        return {"already": False}
+    return tx(run)
+
+
+def op_despawn_loot(a):
+    """Remains decayed: delete the container and anything still inside it."""
+    oid = str(a["object_id"])
+
+    def run(cur):
+        cur.execute("SELECT 1 FROM world_objects WHERE id = %s AND policy = 'temporary'", (oid,))
+        if cur.fetchone() is None:
+            return {"removed": 0}
+        cur.execute("DELETE FROM items WHERE container_id IN (SELECT id FROM containers WHERE world_object_id = %s)", (oid,))
+        n = cur.rowcount
+        cur.execute("DELETE FROM containers WHERE world_object_id = %s", (oid,))
+        cur.execute("DELETE FROM world_objects WHERE id = %s", (oid,))
+        return {"removed": n}
+    return tx(run)
+
+
 def op_op_status(a):
     op_id = str(uuid.UUID(str(a["op_id"])))
     return tx(lambda cur: {"committed": cur.execute("SELECT 1 FROM item_ops WHERE op_id = %s", (op_id,)).fetchone() is not None})
@@ -501,7 +564,7 @@ OPS = {
     "char_list": op_char_list, "char_create": op_char_create, "char_claim": op_char_claim,
     "char_release": op_char_release, "checkpoint": op_checkpoint, "server_start": op_server_start,
     "world_load": op_world_load, "commit_items": op_commit_items, "op_status": op_op_status,
-    "world_state": op_world_state,
+    "world_state": op_world_state, "spawn_loot": op_spawn_loot, "despawn_loot": op_despawn_loot,
 }
 
 

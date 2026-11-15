@@ -1,16 +1,139 @@
 # Project State
 
-_Last updated: Slice 004, "The World Remembers"_
+_Last updated: Slice 005, "Steel & Sorcery"_
 
 | Slice | Theme | Status |
 |---|---|---|
 | 001 | Isometric visual lab: world, movement, sorting, camera, zoom, 64/96 resolution comparison | Done ([report](docs/PROTOTYPE_STATUS.md)) |
 | 002 | Interaction: door, chest, ground items, inventory, equipment, tactile UI | Done. Still passes all 43 UI checks after Slice 003. |
 | 003 | Multiplayer: dedicated authoritative server, two-player shared world | Done. Still passes all 93 multiplayer checks after Slice 004. |
-| 004 | Persistence: accounts, characters, PostgreSQL, durable inventory and world | **Done**. See below. |
+| 004 | Persistence: accounts, characters, PostgreSQL, durable inventory and world | Done. Still passes all 143 persistence checks after Slice 005. |
+| 005 | Combat: targeting, melee, bow, lightning sword, three creatures, death, loot, skills | **Done**. See below. |
 
 Native resolution (64×32 vs 96×48) is **still an open director decision**.
 Everything in Slice 002 works with both sets.
+
+## Slice 005: what was built
+
+Full technical description: [docs/COMBAT.md](docs/COMBAT.md). All tuning
+lives in `game/data/combat.json`.
+
+- **Server-authoritative combat** (`game/scripts/sim/combat/`). It runs
+  identically offline and on the dedicated server.
+  - **Flow:** an `attack` command engages a target; the server paces swings,
+    resolves each when its windup ends (hit or miss, damage, effects, skill
+    gain), and sends events for clients to present.
+  - **Validation:** target exists and is hostile and alive, engage distance,
+    range, line of sight for bows, stamina, attack interval, and the actor's
+    defeated state.
+  - **One damage path:** `apply_damage()`.
+  - **Damage categories:** physical and electrical.
+  - **Status effects:** a small framework; `shocked` is the only effect so
+    far.
+- **Resources:** health, stamina and mana, plus attack and defense ratings,
+  all data-driven. Regeneration is faster out of combat. Swings cost stamina
+  and lightning discharges cost mana.
+- **Weapons**
+  - **Iron Sword:** melee.
+  - **Hunting Bow:** 8-tile range, line of sight, arrows timed to their
+    flight; ammunition simplified to unlimited (documented).
+  - **Stormcaller (lightning sword):** electrical bonus damage plus
+    *shocked*. Its arcs and sparks come from the reusable weapon-effect
+    system rather than being baked into sprites; bolts and blue sparks on
+    impact.
+- **Creatures:** the **wolf** (fast wanderer that pursues), the **skeleton
+  guard** (slow, long windup, returns to its post) and the **bandit**
+  (patrols, strafes, retreats when badly hurt). They are built from
+  reusable parts, think at 10 Hz and sleep when no player is near.
+- **Death and loot**
+  - A creature dies once and leaves one set of remains, whose loot comes
+    from structured tables.
+  - Loot is persisted *before* it appears, and is free for all (one winner
+    per item). Remains decay after 180 s and are temporary across restarts.
+  - Creatures respawn after 45–60 s.
+  - **Player defeat:** frozen, greyed and fallen. "Return to the homestead"
+    brings the character back at the shrine with 50% health. No items are
+    lost.
+- **Skills:** Swordsmanship and Defense. They rise only from swings the
+  server itself resolved, are capped, and are persisted with vitals
+  (migration 002).
+- **Presentation**
+  - New animations: player attack and death; weapon layers for sword, bow
+    and Stormcaller; creature idle, walk, attack and death in 8 facings.
+  - Hit flashes, a target ring, arcing arrows, lightning bolts and sparks.
+  - Optional damage numbers (N).
+  - Vitals, Target, Skills (J) and Defeated windows.
+  - 16 new placeholder sounds.
+  - Tree canopies now fade when they hide the player.
+  - Characters and creatures get a body hit box for clicking (skeletons
+    were too thin to click).
+- **Woodland clearing** south-west of the cottage, with the three
+  encounters. An **armory chest** by the path holds the bow, Stormcaller
+  and a sword.
+
+### Slice 005 verification (all executed)
+
+| Suite | Result |
+|---|---|
+| `tests/combat_tests.gd`: combat rules, offline authority, deterministic | **60/60** |
+| `tests/persist/run.sh`: Slice 004 tests plus t10–t12 over the network with real processes. t10: two players take weapons, fight the wolf together, verify one death and one loot drop, a single DB row for the pelt, skill gain. t11: restart. t12: abuse. | **143/143** |
+| GUI combat walkthrough (real input, Xvfb): armory, Stormcaller, wolf kill with lightning, remains, drag loot, skills, bow vs. skeleton, defeat by the bandit, respawn | **16/16** ([log](docs/images/slice005/combat_gui.log), screenshots in `docs/images/slice005/`) |
+| Regression: rules, multiplayer, single-player UI, Keeper | **79/79**, **93/93**, **43/43**, **41/41** |
+
+| Directive test | Result | How |
+|---|---|---|
+| 01 Target selection | ✓ | Click selects (target window and ring); unknown, self, player and dead targets rejected (c01); the target clears on death or despawn (GUI) |
+| 02 Melee | ✓ | Swing pacing, range check, health change equals the server's damage events, every swing resolves once (c02); GUI wolf fight |
+| 03 Ranged | ✓ | Shots at 6 tiles with travel time; none beyond 8 tiles or through the cottage walls (c03); GUI arrow vs. skeleton |
+| 04 Lightning sword | ✓ | Electrical damage plus shocked from the server, mana cost, no discharge without mana (c04). Arcs visible while idle and bolts on hits (GUI screenshots). Equip replicated to the other player (t10). |
+| 05 NPC behaviour | ✓ | Detection, wolf faster than skeleton, no standing in obstacles, skeleton returns to its post, bandit retreat (c05) |
+| 06 Death and loot | ✓ | One death, one set of remains, no duplicate loot, loot taken once, decay, respawn (c06); GUI drag-loot |
+| 07 Cooperative combat | ✓ | Offline (c07) and **networked (t10): both clients saw exactly one death**, one loot container, and exactly one of two simultaneous loot requests succeeded |
+| 08 Player death | ✓ | Defeated: can't move, attack or interact; creature disengages; respawn at the shrine with half health (c08); GUI defeat and respawn |
+| 09 Skill advancement | ✓ | Gains only from real swings, capped (c09); persisted across a server restart (t11) |
+| 10 Combat abuse | ✓ | Attack spam doesn't speed up swings, far engage refused, no damage command exists, invalid ids refused, duplicate requests answered from the cache, repeated loot refused (c10, t12, c06) |
+| 11 Persistence regression | ✓ | Stormcaller equipped, the pelt and skills restored after a restart (t11) |
+| 12 Multiplayer regression | ✓ | All earlier suites pass (above) |
+
+**Performance**, measured headless (`tests/bench_combat.gd`):
+
+| Scenario | Cost per 30 Hz tick | Share of the 33 ms budget |
+|---|---|---|
+| 3 creatures, all active | 46 µs | 0.1% |
+| 33 creatures, all fighting | 333 µs | 1.0% |
+
+- Server static memory is about 23 MB.
+- A `state` message with 2 players and 3 creatures is 564 bytes, about
+  6.6 KB/s per client at 12 Hz.
+- Effects free themselves (≤ 0.6 s); remains decay, so nothing accumulates.
+
+### Slice 005 limitations and risks
+
+- **Art and audio dependencies:**
+  - all new art is forge stand-in art in the approved camera and palette;
+  - the hit reaction is a red flash (no flinch frames);
+  - the Rusty Dagger has no in-hand layer;
+  - no arrow or quiver item;
+  - sounds are synthetic placeholders.
+- **Not verified:**
+  - a human feel or balance pass (numbers are first-pass and live in
+    `combat.json`);
+  - combat on the 96×48 set in a GUI run (the art exists; the automated GUI
+    run used 64×32);
+  - combat under artificial latency in a GUI run (the networked co-op test
+    ran without added lag);
+  - LAN and GPU, as before.
+- **No client-side combat prediction.** Animations start when the server's
+  swing event arrives, so swings appear about one round-trip late. This is
+  deliberate: the server stays authoritative.
+- **Creature navigation is steering, not pathfinding.** Creatures can be
+  outmanoeuvred around large obstacles. Stuck creatures re-pick a goal, or
+  are placed back at their spawn when stuck while returning home.
+- **No actor-to-actor collision.** Creatures and players can overlap.
+- **Engaging is allowed up to range + 12 tiles,** so you can declare an
+  attack and then walk in. Swings still need real range.
+- **Skill gains since the last checkpoint** (≤ 10 s) are lost on a crash,
+  the same rule as position.
 
 ## Slice 004: what was built
 
@@ -348,7 +471,9 @@ Screenshots: `docs/images/slice002/`.
 4. **Player appearance variants** (hair, cloth colours), so two players can
    be told apart without name labels.
 5. ~~Slice 004 persistence~~: done.
-6. **Next candidates:**
+6. **Combat feel:** a balance pass, and whether the defeated state should
+   cost anything (it currently costs nothing).
+7. **Next candidates:**
    - Asynchronous commit pipeline.
    - Account management (password change, recovery).
    - Interiors.
