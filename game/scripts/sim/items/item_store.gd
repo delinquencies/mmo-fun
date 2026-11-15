@@ -100,11 +100,52 @@ func total_quantity(def_id: String) -> int:
 	return n
 
 
-func _create(def_id: String, qty: int) -> int:
-	var uid := _next_uid
-	_next_uid += 1
+func _create(def_id: String, qty: int, uid: int = 0) -> int:
+	if uid == 0:
+		uid = reserve_uid()
 	items[uid] = ItemInstance.new(uid, def_id, qty)
 	return uid
+
+
+func reserve_uid() -> int:
+	var uid := _next_uid
+	_next_uid += 1
+	return uid
+
+
+## Load persisted item rows {uid, def, qty, loc (wire), version}. Used by the
+## server for the world and for characters entering it.
+func load_rows(rows: Array) -> void:
+	for r in rows:
+		var uid := int(r["uid"])
+		var loc := ItemLocation.from_wire(r["loc"])
+		if loc["kind"] == "container":
+			loc["slot"] = int(loc["slot"])   # JSON numbers arrive as floats
+		if loc["kind"] == "equipment" and not equipment.has(loc["owner"]):
+			continue
+		if loc["kind"] == "container" and not containers.has(loc["container"]):
+			push_warning("item %d references unknown container %s; not loaded" % [uid, loc["container"]])
+			continue
+		var it := ItemInstance.new(uid, str(r["def"]), int(r["qty"]))
+		it.version = int(r.get("version", 1))
+		items[uid] = it
+		_place(uid, loc)
+		_next_uid = maxi(_next_uid, uid + 1)
+	revision += 1
+	changed.emit()
+
+
+## Forget (not destroy) everything an actor carries: its rows stay in storage.
+func unload_actor(actor: String) -> Array[int]:
+	var out: Array[int] = []
+	for uid in items.keys():
+		var loc := location(uid)
+		if (loc.get("kind") == "container" and loc["container"] == "%s.backpack" % actor) \
+				or (loc.get("kind") == "equipment" and loc["owner"] == actor):
+			_vacate(uid)
+			items.erase(uid)
+			out.append(uid)
+	return out
 
 
 func _place(uid: int, loc: Dictionary) -> void:

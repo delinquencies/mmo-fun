@@ -16,9 +16,26 @@ gameplay resolution before any MMO infrastructure is built.
 | `game/data/maps/homestead.json` | Hand-placed homestead map (terrain corners + props) |
 | `game/data/props.json` | Resolution-independent prop data (collision, sort mode) |
 | `PROJECT_STATE.md` | **Current state of the project**: slices, verification status, known issues |
+| `docs/PERSISTENCE.md` | Accounts, characters, PostgreSQL schema, save strategy, recovery, security (Slice 004) |
+| `db/migrations/` | Versioned SQL migrations |
+| `tools/keeper/` | Keeper: trusted persistence + Argon2id authentication process |
 | `docs/INTERACTION_SYSTEMS.md` | Commands, item/inventory data structures and transfer invariants (Slice 002) |
 | `docs/PROTOTYPE_STATUS.md` | Slice 001 report: calibration findings and open art decisions |
 | `game/tests/run_tests.gd` | Headless tests for the item/interaction authority |
+
+## Persistent realm (Slice 004)
+
+Accounts, characters, inventories, equipment and the shared chest survive
+logouts and server restarts. Data is stored in PostgreSQL.
+
+```bash
+pip install -r tools/keeper/requirements.txt && tools/db/dev_db.sh init   # once
+tools/keeper/run_keeper.sh & tools/net/run_server.sh --persistent         # backend
+tools/net/run_client.sh Alice                                             # clients
+```
+
+Architecture and security: [docs/PERSISTENCE.md](docs/PERSISTENCE.md).
+Full procedure: [docs/MULTIPLAYER_TESTING.md](docs/MULTIPLAYER_TESTING.md).
 
 ## Multiplayer (Slice 003)
 

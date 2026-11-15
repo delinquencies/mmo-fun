@@ -6,6 +6,7 @@ extends RefCounted
 var uid: int
 var def_id: String
 var quantity := 1
+var version := 1          # optimistic-concurrency version mirrored from the database
 
 
 func _init(p_uid: int, p_def: String, p_qty: int) -> void:

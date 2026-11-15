@@ -12,6 +12,8 @@ var moving := false
 var running := false
 var anim_time := 0.0
 var linkdead := false
+var character_id := 0             # persistent characters only (0 = temporary session)
+var appearance: Dictionary = {}   # e.g. {"cloth": "azure"}
 
 var render_pos := Vector2.ZERO
 var render_facing := 0

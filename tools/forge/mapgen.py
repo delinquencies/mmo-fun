@@ -141,11 +141,17 @@ def main():
         "player_start": [17.5, 10.6],
         # Slice 002 interactables (definitions: game/data/interactables.json)
         "entities": [
-            {"id": "cottage_door", "def": "door_wood", "x": COTTAGE[0] + 3.06, "y": COTTAGE[1] + 2.55},
+            {"id": "cottage_door", "def": "door_wood", "x": COTTAGE[0] + 3.06, "y": COTTAGE[1] + 2.55,
+             "persistence": "permanent"},
             {"id": "cottage_chest", "def": "chest_wood", "x": COTTAGE[0] + 0.85, "y": COTTAGE[1] + 1.25,
+             "persistence": "permanent",
              "contents": [["gold_coins", 25], ["red_apple", 3], ["healing_potion", 1]]},
         ],
-        "ground_items": [{"def": "iron_sword", "x": 18.4, "y": 12.2}],
+        # spawn_id is the stable identity used by persistence (docs/PERSISTENCE.md)
+        "ground_items": [
+            {"spawn_id": "spawn_iron_sword", "def": "iron_sword", "x": 18.4, "y": 12.2, "persistence": "permanent"},
+            {"spawn_id": "spawn_trough_apples", "def": "red_apple", "qty": 2, "x": 11.45, "y": 16.35, "persistence": "resettable"},
+        ],
     }
     out = os.path.join(ROOT, "game", "data", "maps", "homestead.json")
     with open(out, "w") as f:

@@ -1358,13 +1358,15 @@
    "id": "cottage_door",
    "def": "door_wood",
    "x": 15.06,
-   "y": 9.55
+   "y": 9.55,
+   "persistence": "permanent"
   },
   {
    "id": "cottage_chest",
    "def": "chest_wood",
    "x": 12.85,
    "y": 8.25,
+   "persistence": "permanent",
    "contents": [
     [
      "gold_coins",
@@ -1383,9 +1385,19 @@
  ],
  "ground_items": [
   {
+   "spawn_id": "spawn_iron_sword",
    "def": "iron_sword",
    "x": 18.4,
-   "y": 12.2
+   "y": 12.2,
+   "persistence": "permanent"
+  },
+  {
+   "spawn_id": "spawn_trough_apples",
+   "def": "red_apple",
+   "qty": 2,
+   "x": 11.45,
+   "y": 16.35,
+   "persistence": "resettable"
   }
  ]
 }

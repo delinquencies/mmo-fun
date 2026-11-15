@@ -84,5 +84,9 @@ func _apply_overlay_textures() -> void:
 		overlay_shadow.texture = aset.texture(layers[current_anim]["shadow"])
 
 
+func set_appearance(appearance: Dictionary) -> void:
+	sprite.material = Appearance.material_for(appearance)
+
+
 func fps(anim: String) -> float:
 	return float(meta["anims"][anim]["fps"])

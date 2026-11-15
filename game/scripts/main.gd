@@ -11,6 +11,8 @@ var offline_sim: WorldSim
 var net := NetClient.new()
 var online := false
 var connect_win := ConnectWindow.new()
+var login_win := LoginWindow.new()
+var char_win := CharacterWindow.new()
 var name_labels: Dictionary = {}     # actor -> Label
 var _authority: Object
 var asset_sets: Dictionary = {}
@@ -100,8 +102,10 @@ func _ready() -> void:
 	_switch_world(sim, sim.interaction)
 	connect_win.connect_requested.connect(func(a, p, n): net.connect_to(a, p, n))
 	connect_win.disconnect_requested.connect(func(): net.disconnect_from_server())
+	connect_win.leave_world_requested.connect(func(): net.send_chars("leave"))
 	add_child(connect_win)
 	connect_win.visible = false
+	_setup_account_ui()
 	_place_connect_window.call_deferred()
 	if cli.has("connect"):
 		var hp: PackedStringArray = String(cli["connect"]).split(":")
@@ -141,8 +145,100 @@ func _switch_world(new_sim: WorldSim, authority: Object) -> void:
 	hovered_id = ""
 	_rebuild_views()
 	set_ui_scale(UI_SCALES[ui_scale_i])
-	if connect_win.is_inside_tree():
-		move_child(connect_win, -1)
+	for w in [connect_win, login_win, char_win]:
+		if w.is_inside_tree():
+			move_child(w, -1)
+
+
+# --- Slice 004: login, character selection ------------------------------------
+
+func _setup_account_ui() -> void:
+	for w in [login_win, char_win]:
+		add_child(w)
+		w.visible = false
+	login_win.close_requested.connect(func(): net.disconnect_from_server())
+	char_win.close_requested.connect(func(): net.disconnect_from_server())
+	login_win.login_requested.connect(func(u, pw):
+		login_win.set_busy(true)
+		login_win.set_status("Checking your credentials ...")
+		net.send_auth("login", {"username": u, "password": pw}))
+	login_win.register_requested.connect(func(u, pw):
+		login_win.set_busy(true)
+		login_win.set_status("Creating the account ...")
+		net.send_auth("register", {"username": u, "password": pw}))
+	login_win.leave_requested.connect(func(): net.disconnect_from_server())
+	char_win.enter_requested.connect(func(cid):
+		char_win.set_status("Entering the world ...")
+		net.send_chars("enter", {"character_id": cid}))
+	char_win.create_requested.connect(func(n, ap): net.send_chars("create", {"name": n, "appearance": ap}))
+	char_win.logout_requested.connect(func(): net.send_auth("logout", {}))
+	net.realm_ready.connect(_on_realm_ready)
+	net.auth_result.connect(_on_auth_result)
+	net.chars_result.connect(_on_chars_result)
+	net.left_world.connect(_on_left_world)
+	var aset: AssetSet = asset_sets.get(SETS[active])
+	if aset:
+		var meta := aset.anim("player")
+		var idle: Dictionary = meta["anims"]["idle"]
+		var pv := Vector2(meta["pivot"][0], meta["pivot"][1])
+		var h := float(meta.get("content_height_px", 72)) + 6.0
+		char_win.set_preview_source(aset.texture(idle["file"]), Rect2(pv.x - h * 0.42, pv.y - h, h * 0.84, h + 4))
+
+
+func _show_window(w: GameWindow) -> void:
+	for o in [connect_win, login_win, char_win]:
+		o.visible = o == w
+	w.fit()
+	w.position = Vector2(size.x * 0.5 - w.size.x * 0.5, maxf(60.0, size.y * 0.5 - w.size.y * 0.5 - 60))
+	move_child(w, -1)
+	w.pop_in()
+
+
+func _on_realm_ready(info: Dictionary) -> void:
+	login_win.realm_label.text = "%s  -  %s" % [info["realm"], "encrypted connection" if net.secure else "unencrypted (local only)"]
+	login_win.set_busy(false)
+	login_win.set_status("Log in, or create an account.")
+	_show_window(login_win)
+
+
+func _on_auth_result(r: Dictionary) -> void:
+	login_win.set_busy(false)
+	if not r["ok"]:
+		login_win.set_status(r["message"], true)
+		if not login_win.visible and net.state == "login":
+			_show_window(login_win)
+		return
+	if net.state == "account":
+		char_win.set_status("")
+		_show_window(char_win)
+		net.send_chars("list")
+	elif net.state == "login":
+		if r["data"].has("username") and not r["data"].has("token"):
+			login_win.set_status("Account '%s' created. You can log in now." % r["data"]["username"])
+		else:
+			login_win.set_status("Logged out.")
+		_show_window(login_win)
+
+
+func _on_chars_result(r: Dictionary) -> void:
+	if not r["ok"]:
+		char_win.set_status(r["message"], true)
+		return
+	var d: Dictionary = r["data"]
+	if d.has("characters"):
+		char_win.populate(d["characters"])
+	elif d.has("character"):
+		char_win.set_status("%s has been created." % d["character"]["name"])
+		char_win.name_edit.text = ""
+		net.send_chars("list")
+
+
+func _on_left_world(reason: String) -> void:
+	online = false
+	_switch_world(offline_sim, offline_sim.interaction)
+	char_win.set_status(reason)
+	_show_window(char_win)
+	net.send_chars("list")
 
 
 func _place_connect_window() -> void:
@@ -152,6 +248,12 @@ func _place_connect_window() -> void:
 
 func _on_net_status(state: String, detail: String) -> void:
 	connect_win.set_state(state, detail)
+	connect_win.leave_world_btn.visible = state == "connected" and not net.realm.is_empty()
+	if state == "disconnected" or state == "failed":
+		login_win.visible = false
+		char_win.visible = false
+		if not online:
+			connect_win.visible = true
 	_journal(detail, UISkin.BAD if state == "failed" else UISkin.GOLD)
 	if (state == "disconnected" or state == "failed") and online:
 		online = false
@@ -163,7 +265,8 @@ func _on_net_status(state: String, detail: String) -> void:
 func _on_net_world_ready() -> void:
 	online = true
 	_switch_world(net.sim, net)
-	connect_win.visible = false
+	for w in [connect_win, login_win, char_win]:
+		w.visible = false
 
 
 ## Say goodbye while the scene tree is still intact (window close / scripted quit),
@@ -276,7 +379,7 @@ func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	if get_viewport().gui_get_focus_owner() is LineEdit:
-		return   # typing into the connection panel
+		return   # typing into a panel (connection, login, character name)
 	match event.physical_keycode:
 		KEY_F9:
 			connect_win.visible = not connect_win.visible

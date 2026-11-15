@@ -26,3 +26,10 @@
   `Protocol.VERSION` on incompatible changes.
 - Run `godot --headless --path game --script res://tests/mp_tests.gd` after
   touching `game/scripts/net/` or anything the server uses.
+- Persistence (Slice 004): item and permanent-object changes must pass the
+  durable gate (`ItemTransferService.persist`, `InteractionSystem.persist_world`)
+  BEFORE memory changes. Never re-send a commit whose outcome is unknown; resolve
+  it by `op_id`. Schema changes go in a new `db/migrations/NNN_*.sql`. Never log
+  or commit passwords, hashes, tokens or `.dev/` secrets. Docs: `docs/PERSISTENCE.md`.
+- Run `tests/keeper/run.sh` and `tests/persist/run.sh` after touching
+  `tools/keeper/`, `db/`, or server persistence code.

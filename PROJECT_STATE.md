@@ -1,15 +1,125 @@
 # Project State
 
-_Last updated: Slice 003, "Another Soul"_
+_Last updated: Slice 004, "The World Remembers"_
 
 | Slice | Theme | Status |
 |---|---|---|
 | 001 | Isometric visual lab: world, movement, sorting, camera, zoom, 64/96 resolution comparison | Done ([report](docs/PROTOTYPE_STATUS.md)) |
 | 002 | Interaction: door, chest, ground items, inventory, equipment, tactile UI | Done. Still passes all 43 UI checks after Slice 003. |
-| 003 | Multiplayer: dedicated authoritative server, two-player shared world | **Done**. See below. |
+| 003 | Multiplayer: dedicated authoritative server, two-player shared world | Done. Still passes all 93 multiplayer checks after Slice 004. |
+| 004 | Persistence: accounts, characters, PostgreSQL, durable inventory and world | **Done**. See below. |
 
 Native resolution (64×32 vs 96×48) is **still an open director decision**.
 Everything in Slice 002 works with both sets.
+
+## Slice 004: what was built
+
+Architecture, schema, policies, save and recovery rules, and security are in
+[docs/PERSISTENCE.md](docs/PERSISTENCE.md). Setup and launch are in
+[docs/MULTIPLAYER_TESTING.md](docs/MULTIPLAYER_TESTING.md).
+
+- **PostgreSQL schema with versioned migrations** (`db/migrations/`).
+  - One row per item instance, so an item has exactly one location.
+  - Constraints enforce single location, slot and equip uniqueness (deferred,
+    so swaps work), positive quantities, stack limits and capacity.
+  - Character-ownership foreign keys; an `item_ops` idempotency log; world
+    objects with policies.
+- **Keeper** (`tools/keeper/keeper.py`): the trusted loopback-only process
+  for database and authentication work. It uses psycopg 3 and argon2-cffi.
+  - It exists because Godot has no PostgreSQL driver and no Argon2id.
+  - It requires a shared secret and uses parameterised SQL in one transaction
+    per operation.
+  - Rate limits and account lockout; tokens are stored only as SHA-256.
+  - Dev cluster and secrets via `tools/db/dev_db.sh`, plus `docker-compose.yml`.
+- **Accounts**
+  - Register, log in, log out, and resume after a dropped connection with an
+    in-memory token.
+  - Generic login errors, timing-equalised for unknown users.
+  - Passwords hashed with Argon2id.
+- **DTLS on every client connection.** The client pins the server
+  certificate (generated for development in `.dev/tls`).
+  - The server refuses non-loopback binds without TLS.
+  - The client won't send a password unencrypted to a non-loopback host.
+- **Characters**
+  - Up to 3 per account: stable id, documented name rule (unique,
+    case-insensitive), cloth-colour appearance via a shader (5 variants, no
+    new art), basic attributes, timestamps.
+  - Login window, character selection and creation windows, "Leave world"
+    and "Log out", all in the existing leather/parchment UI.
+- **World entry.** In order:
+  1. authenticate;
+  2. claim the character (ownership check plus an exclusive lock);
+  3. load it, with spawn validation and a documented safe fallback;
+  4. load its inventory and equipment;
+  5. spawn and replicate it.
+
+  Duplicate login is refused while the first session is active; a new
+  session takes over a link-dead character.
+- **Durable gameplay**
+  - Every item change commits to PostgreSQL *before* it's applied. On failure
+    nothing changes and the player is told so.
+  - The permanent door state is gated the same way.
+  - Positions are checkpointed every 10 s and saved on leave and on graceful
+    shutdown.
+  - Stale locks are cleared at restart.
+  - An unknown commit outcome is resolved by `op_id`, never re-sent.
+- **World policies:**
+  - **Permanent:** the door, the chest and its contents, the iron sword spawn.
+  - **Resettable:** the apples at the trough, restored at each server start.
+  - **Temporary:** everything else.
+- **Minimal changes to Slices 002–003:**
+  - Durable-gate hooks in `ItemTransferService` and `InteractionSystem`.
+  - Item versions; `ItemStore.load_rows()` and `unload_actor()`.
+  - `PlayerState` gains a character id and appearance.
+  - Protocol v2 (realm, auth, chars and left messages; appearance in player
+    records).
+  - Persistent mode in `GameServer`, behind `--persistent`; temporary mode is
+    unchanged.
+
+### Slice 004 verification (all executed)
+
+| Suite | Result |
+|---|---|
+| `tests/keeper/run.sh`: Keeper against real PostgreSQL | **41/41** |
+| `tests/persist/run.sh`: real Keeper and server processes (restarted and `kill -9`ed), PostgreSQL stopped and started mid-test, DTLS clients | **113/113** ([log](docs/images/slice004/persist_tests.log)) |
+| `tests/persist/dod_gui.sh`: Definition of Done with two GUI clients over two sessions, server and Keeper restarted in between | **38/38**, twice ([log](docs/images/slice004/dod_gui_run.log), screenshots in `docs/images/slice004/`) |
+| Regression: rules, multiplayer, single-player UI | **79/79**, **93/93**, **43/43** |
+
+| Directive test | Result |
+|---|---|
+| 01 Account creation | ✓ Register, duplicate refused, wrong password and unknown user give the same generic error, logout revokes, log back in, token resume after a drop |
+| 02 Character persistence | ✓ Position saved on leave and restored on re-entry; appearance restored and replicated to others |
+| 03 Server restart | ✓ Server and Keeper restarted: sword still equipped, 10 coins still in backpack slot 3, door state kept, position restored inside the cottage, coin total unchanged |
+| 04 Shared chest | ✓ Bob deposits; Alice sees it live; after a `kill -9` and restart the apples are still in slot 8. Also done through the UI in the GUI run |
+| 05 Duplicate login | ✓ Second session refused ("already in the world"); the first keeps control; link-dead takeover works |
+| 06 Unauthorized character | ✓ Another account's character id gets `not_found`; another player's equipment or backpack can't be taken (and isn't even replicated); no access before login |
+| 07 Concurrent transfer | ✓ Exactly one pickup; the database holds one row for the sword, located in the winner's backpack |
+| 08 Database failure | ✓ PostgreSQL stopped: the transfer is refused with "nothing was changed", the database is untouched, logins fail safely; after restart the same transfer succeeds |
+| 09 Crash recovery | ✓ Split committed, then `kill -9`: the split survives, totals intact, no duplicates, the stale lock is cleared on restart, the player re-enters immediately |
+| 10 Regression | ✓ All Slice 001–003 suites pass: movement, depth sorting, doors, containers, remote movement, equipment visibility, tactile drag-and-drop |
+
+### Slice 004 limitations and risks
+
+- **Not verified:**
+  - LAN or two physical machines.
+  - Production TLS certificates (only the pinned development certificate).
+  - Docker Compose (written, not run here: no Docker daemon available).
+  - Windows and macOS.
+  - Human play.
+  - Load beyond 2–4 clients.
+  - The "unknown commit outcome" resolution path. It is implemented, but no
+    test forces a Keeper disconnect mid-commit.
+- **Item commits block the region's main loop for one localhost
+  transaction.** That is typically a few ms, bounded at 2 s if the database
+  stalls. It is a deliberate trade-off for strict ordering; an asynchronous
+  commit queue is the upgrade path.
+- **Positions can roll back up to 10 s on a crash.** Items never roll back.
+- **Missing account features:** no account recovery, password change, email,
+  character deletion or admin tools. Orphaned world objects need manual SQL.
+- **Appearance is cloth colour only.** Richer options need art.
+- **Keeper rate limits** live in memory and reset when Keeper restarts.
+- **Temporary-session mode** (no `--persistent`) still drops carried items
+  on leave, by design, for development use.
 
 ## Slice 003: what was built
 
@@ -237,7 +347,9 @@ Screenshots: `docs/images/slice002/`.
 3. **Real audio:** recordings to replace the placeholders.
 4. **Player appearance variants** (hair, cloth colours), so two players can
    be told apart without name labels.
-5. **Slice 004 persistence:**
-   - Accounts or characters keyed to a stored identity.
-   - Inventory saved in PostgreSQL.
-   - Reconnecting returns the same character instead of a fresh session.
+5. ~~Slice 004 persistence~~: done.
+6. **Next candidates:**
+   - Asynchronous commit pipeline.
+   - Account management (password change, recovery).
+   - Interiors.
+   - Richer appearance art.

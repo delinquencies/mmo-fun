@@ -1,0 +1,197 @@
+ERROR: Method/function failed. Returning: -0x6C00
+[server    0.00] persistent world loaded: 5 items, seeded ["cottage_chest", "spawn_iron_sword", "spawn_trough_apples"]
+[server    0.00] persistent realm 'The Homestead', DTLS on; 
+[server    0.00] listening on 127.0.0.1:24721  (tick 30 Hz, state 12 Hz, protocol v2)
+   ok   [boot] persistent server started (Keeper + PostgreSQL reachable, DTLS)
+   baseline totals in DB: {"gold_coins":25,"healing_potion":1,"iron_sword":1,"red_apple":5}
+   ok   [t01_accounts] connected (DTLS: true)
+   ok   [t01_accounts] client traffic is encrypted (DTLS)
+   ok   [t01_accounts] register alice
+   ok   [t01_accounts] duplicate account refused
+   ok   [t01_accounts] wrong password: generic error
+   ok   [t01_accounts] unknown account: same generic error
+[server    2.67] account 1 authenticated on peer 711836001
+   ok   [t01_accounts] login with correct credentials
+   ok   [t01_accounts] stored as Argon2id
+   ok   [t01_accounts] logout
+   ok   [t01_accounts] character list refused after logout
+[server    2.80] account 1 authenticated on peer 711836001
+   ok   [t01_accounts] log back in
+   ok   [t01_accounts] second client connected
+   ok   [t01_accounts] register bob
+[server    3.47] account 3 authenticated on peer 1077421248
+   ok   [t01_accounts] bob logged in
+   ok   [t01_accounts] reconnect after a dropped connection
+[server    4.00] account 1 authenticated on peer 2103985941
+   ok   [t01_accounts] account session resumed with the token (no password resent)
+PASS t01_accounts
+   ok   [t02_character_persistence] create character Alice (crimson)
+   ok   [t02_character_persistence] invalid name refused: Names are 3-16 letters (spaces or apostrophes inside), and some names are reserved.
+   ok   [t02_character_persistence] unknown appearance refused by the server schema
+   ok   [t02_character_persistence] names are unique across accounts (case-insensitive)
+   ok   [t02_character_persistence] list shows only my character
+[server    4.10] Alice (character 1, account 1) entered at (17.5, 10.6)
+   ok   [t02_character_persistence] Alice enters the world
+   ok   [t02_character_persistence] appearance replicated
+   ok   [t02_character_persistence] Alice walks somewhere else
+[server    5.03] Alice (character 1) left the world; saved and unloaded
+   ok   [t02_character_persistence] leave the world (back to character selection)
+   ok   [t02_character_persistence] position saved in the database (19.0,11.9)
+[server    5.57] Alice (character 1, account 1) entered at (19.0, 11.9)
+   ok   [t02_character_persistence] re-enter
+   ok   [t02_character_persistence] restored at the saved position
+[server    5.60] Bob (character 3, account 3) entered at (17.5, 10.6)
+   ok   [t02_character_persistence] Bob enters
+   ok   [t02_character_persistence] both see each other
+   ok   [t02_character_persistence] Bob sees Alice's appearance
+PASS t02_character_persistence
+   ok   [t03_server_restart] sword lies in the world
+   ok   [t03_server_restart] Alice at the sword
+   ok   [t03_server_restart] pick up
+   ok   [t03_server_restart] equip
+   ok   [t03_server_restart] to the door
+   ok   [t03_server_restart] open the persistent door
+   ok   [t03_server_restart] inside
+   ok   [t03_server_restart] at the chest
+   ok   [t03_server_restart] open chest
+   ok   [t03_server_restart] take 10 coins into backpack slot 3 ()
+   ok   [t03_server_restart] split committed in the database
+ERROR: Unable to send packet on channel 1, max channels: 0
+[server   10.13] Alice (character 1) left the world; saved and unloaded
+   ok   [t03_server_restart] logout released Alice's lock
+[server] graceful shutdown requested
+[server   11.07] saved 1 character(s): server shutdown
+[server   11.07] stopped
+ERROR: Method/function failed. Returning: -0x6C00
+[server    0.00] persistent world loaded: 4 items, seeded []
+[server    0.00] persistent realm 'The Homestead', DTLS on; 
+[server    0.00] listening on 127.0.0.1:24721  (tick 30 Hz, state 12 Hz, protocol v2)
+   ok   [t03_server_restart] server and Keeper restarted
+   ok   [t03_server_restart] reconnect
+[server    2.27] account 1 authenticated on peer 38225400
+   ok   [t03_server_restart] logged in (token resume or password)
+[server    2.27] Alice (character 1, account 1) entered at (13.7, 8.8)
+   ok   [t03_server_restart] enter
+   ok   [t03_server_restart] sword still equipped after restart
+   ok   [t03_server_restart] 10 coins still in backpack slot 3
+   ok   [t03_server_restart] door state persisted across restart
+   ok   [t03_server_restart] position restored inside the cottage
+   ok   [t03_server_restart] no coins created or lost
+[server    3.30] account 3 authenticated on peer 444428407
+   ok   [t03_server_restart] Bob back
+[server    3.33] Bob (character 3, account 3) entered at (17.5, 10.6)
+   ok   [t03_server_restart] Bob enters
+PASS t03_server_restart
+   ok   [t04_shared_chest] trough apples present (resettable spawn)
+   ok   [t04_shared_chest] Bob at the trough
+   ok   [t04_shared_chest] Bob picks up the apples
+   ok   [t04_shared_chest] Bob at the door
+   ok   [t04_shared_chest] Bob inside
+   ok   [t04_shared_chest] Bob at the chest
+   ok   [t04_shared_chest] Bob opens the chest
+   ok   [t04_shared_chest] Alice has it open too
+   ok   [t04_shared_chest] Bob deposits the apples in chest slot 8
+   ok   [t04_shared_chest] Alice sees them arrive
+   ok   [t04_shared_chest] deposit committed in the database
+[server   12.30] Alice (character 1) left the world; saved and unloaded
+[server   12.30] Bob (character 3) left the world; saved and unloaded
+Exception in thread Thread-1 (handle_client):
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.13/threading.py", line 1044, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "/usr/local/lib/python3.13/threading.py", line 995, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/mmo-fun/tools/keeper/keeper.py", line 554, in handle_client
+    for line in f:
+                ^
+  File "/usr/local/lib/python3.13/socket.py", line 723, in readinto
+           ~~~~~~~~~~~~~~~~~~~~^^^
+ConnectionResetError: [Errno 104] Connection reset by peer
+ERROR: Method/function failed. Returning: -0x6C00
+[server    0.00] persistent world loaded: 5 items, seeded ["spawn_trough_apples"]
+[server    0.00] persistent realm 'The Homestead', DTLS on; 
+[server    0.00] listening on 127.0.0.1:24721  (tick 30 Hz, state 12 Hz, protocol v2)
+   ok   [t04_shared_chest] server restarted
+[server    2.27] account 1 authenticated on peer 1675690860
+[server    2.30] Alice (character 1, account 1) entered at (13.7, 8.8)
+   ok   [t04_shared_chest] Alice back in
+   ok   [t04_shared_chest] Alice opens the chest
+   ok   [t04_shared_chest] the deposited apples survived the restart
+PASS t04_shared_chest
+[server    2.90] account 1 authenticated on peer 1611270269
+   ok   [t05_duplicate_login] second client logs into the same account
+[server    2.90] duplicate login refused for character 1 (account 1)
+   ok   [t05_duplicate_login] second session refused: 'That character is already in the world.'
+   ok   [t05_duplicate_login] the first session keeps control
+[server    3.30] Alice (50cb2a75) lost connection - link-dead for 2s
+[server    4.10] character 1 reclaimed from link-dead state by peer 1611270269
+   ok   [t05_duplicate_login] after the old connection drops, the new session takes over the link-dead character
+   ok   [t05_duplicate_login] C controls Alice now
+   ok   [t05_duplicate_login] same character, same place
+[server    4.10] Alice (character 1) left the world; saved and unloaded
+[server    5.17] account 1 authenticated on peer 2124153401
+[server    5.17] Alice (character 1, account 1) entered at (13.5, 9.0)
+   ok   [t05_duplicate_login] Alice back on client A
+PASS t05_duplicate_login
+   ok   [t06_unauthorized] connected, not logged in
+   ok   [t06_unauthorized] no character access without login
+[server    5.83] account 4 authenticated on peer 189078398
+   ok   [t06_unauthorized] Mallory has her own account
+   ok   [t06_unauthorized] cannot select Alice's character (not_found)
+[server    5.87] Mal (character 4, account 4) entered at (17.5, 10.6)
+   ok   [t06_unauthorized] Mallory enters with her own character
+   ok   [t06_unauthorized] cannot take from Alice's equipment (not_yours)
+   ok   [t06_unauthorized] cannot take from Alice's backpack (not_yours)
+   ok   [t06_unauthorized] Alice's backpack contents are never replicated to Mallory
+[server    5.87] Mal (character 4) left the world; saved and unloaded
+PASS t06_unauthorized
+[server    6.43] account 3 authenticated on peer 765156608
+[server    6.43] Bob (character 3, account 3) entered at (13.9, 8.2)
+   ok   [t07_concurrent_pickup] Bob back in the world (restored inside the cottage)
+   ok   [t07_concurrent_pickup] Alice outside
+   ok   [t07_concurrent_pickup] Bob outside
+   ok   [t07_concurrent_pickup] Alice drops the sword
+   ok   [t07_concurrent_pickup] Bob next to it
+   ok   [t07_concurrent_pickup] both answered
+   ok   [t07_concurrent_pickup] exactly one pickup succeeded
+   ok   [t07_concurrent_pickup] exactly one row for the sword
+   ok   [t07_concurrent_pickup] its single location is the winner's backpack
+   ok   [t07_concurrent_pickup] no duplicate in the database
+PASS t07_concurrent_pickup
+2026-11-15 01:03:28,157 keeper WARNING op commit_items failed: storage_unavailable (terminating connection due to administrator command)
+   ok   [t08_database_failure] transfer refused while the database is down (storage_unavailable in 14 ms)
+   ok   [t08_database_failure] player told nothing changed
+   ok   [t08_database_failure] client still shows the item where it was
+   ok   [t08_database_failure] server still accepts connections
+2026-11-15 01:03:28,702 keeper WARNING op login failed: storage_unavailable (connection failed: connection to server at "127.0.0.1", port 55432 failed: Connection refused)
+   ok   [t08_database_failure] logins fail safely while the database is down
+   ok   [t08_database_failure] nothing half-written in the database
+   ok   [t08_database_failure] after the database returns, the same transfer succeeds
+   ok   [t08_database_failure] and is committed
+PASS t08_database_failure
+   ok   [t09_crash_recovery] commit a split (4 coins to slot 13)
+   ok   [t09_crash_recovery] crash left a stale lock behind
+ERROR: Method/function failed. Returning: -0x6C00
+ERROR: Method/function failed. Returning: -0x6C00
+ERROR: Method/function failed. Returning: -0x6C00
+[server    0.00] persistent world loaded: 5 items, seeded []
+[server    0.00] persistent realm 'The Homestead', DTLS on; 
+[server    0.00] listening on 127.0.0.1:24721  (tick 30 Hz, state 12 Hz, protocol v2)
+   ok   [t09_crash_recovery] server restarted after the crash
+   ok   [t09_crash_recovery] restart released the stale lock
+   ok   [t09_crash_recovery] committed split survived the crash
+   ok   [t09_crash_recovery] source stack has the remainder
+   ok   [t09_crash_recovery] no duplicates, totals intact (25 coins)
+[server    2.50] account 1 authenticated on peer 891441728
+[server    2.50] Alice (character 1, account 1) entered at (16.0, 9.5)
+   ok   [t09_crash_recovery] Alice can play again immediately
+   ok   [t09_crash_recovery] and sees the committed coins
+PASS t09_crash_recovery
+[server    2.50] Alice (034578a8) lost connection - link-dead for 2s
+[server] graceful shutdown requested
+[server    3.00] saved 1 character(s): server shutdown
+[server    3.00] stopped
+   ok   [teardown] graceful shutdown released every character lock
+113 checks, 0 failures

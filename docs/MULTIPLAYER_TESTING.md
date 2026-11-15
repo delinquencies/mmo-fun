@@ -1,4 +1,49 @@
-# Multiplayer: Launching and Testing (Slice 003)
+# Multiplayer: Launching and Testing (Slices 003–004)
+
+## Persistent realm (Slice 004): one-time setup
+
+```bash
+pip install -r tools/keeper/requirements.txt
+tools/db/dev_db.sh init
+```
+
+`init` does the following:
+1. Creates a PostgreSQL cluster in `.dev/pg`, listening on 127.0.0.1:55432.
+2. Generates `.dev/env` with random passwords and `KEEPER_SECRET` (it is
+   gitignored).
+3. Creates the `mmo` database.
+4. Applies the migrations.
+
+To use Docker instead, see `docker-compose.yml`.
+
+## Play the persistent realm (three terminals)
+
+```bash
+tools/db/dev_db.sh start                         # PostgreSQL (if not running)
+tools/keeper/run_keeper.sh                       # Keeper: persistence + accounts (loopback only)
+tools/net/run_server.sh --persistent             # dedicated server; Ctrl+C = graceful save + shutdown
+tools/net/run_client.sh Alice                    # each player: connect, then log in / create a character
+```
+
+In the client, **F9** opens the realm panel:
+- connect, then the login window appears;
+- the character window lists, creates and enters characters;
+- **Leave world** goes back to the character window, and **Log out** is on
+  the character window.
+
+The temporary-session mode from Slice 003 is still available:
+`tools/net/run_server.sh` without `--persistent`.
+
+## Slice 004 automated acceptance
+
+| Suite | Command | Checks |
+|---|---|---|
+| Keeper against PostgreSQL | `tests/keeper/run.sh` | 41 |
+| Persistence with real processes: Keeper and the server restarted and killed, PostgreSQL stopped mid-test | `GODOT=... tests/persist/run.sh` | 113 |
+| Definition of Done with two GUI clients: register, create, play, log out, restart server and Keeper, log in, verify | `GODOT=... tests/persist/dod_gui.sh` (needs Xvfb) | 38 |
+
+All three use disposable databases (`mmo_test` and `mmo_dod`) in the dev
+cluster and never touch `mmo`.
 
 All commands run from the repository root. `godot` means a Godot **4.3+**
 binary; set `GODOT=/path/to/godot` for the helper scripts.

@@ -135,6 +135,7 @@ func _run() -> void:
 	server.name = "Server"
 	server.verbose = false
 	server.linger = 1.0
+	server.tls = GameServer.dev_tls_options()   # clients pin the dev certificate: DTLS like production
 	get_tree().root.add_child(server)
 	if server.start(PORT) != OK:
 		print("could not start server")
@@ -236,7 +237,7 @@ func t04_simultaneous_pickup() -> void:
 	var winner: NetClient = A if got["A"]["ok"] else B
 	var other: NetClient = B if winner == A else A
 	check(server.sim.items.location(sword).get("container", "") == winner.actor + ".backpack", "sword in the winner's backpack on the server")
-	check(await until(func(): return other.sim.items.item(sword) == null and other.sim.items.world_items().is_empty()), "the other client sees it vanish from the ground")
+	check(await until(func(): return other.sim.items.item(sword) == null and not other.sim.items.world_items().has(sword)), "the other client sees it vanish from the ground")
 	check(server_ok(), "item total unchanged")
 	_winner = winner
 

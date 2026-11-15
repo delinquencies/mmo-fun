@@ -22,10 +22,18 @@ const MESSAGES := {
 	"not_yours": "That does not belong to you.",
 	"invalid_dest": "You cannot put that there.",
 	"no_change": "",
+	"storage_unavailable": "The realm's records could not be updated; nothing was changed. Try again shortly.",
+	"version_conflict": "That could not be done; the records disagree. Nothing was changed.",
+	"conflict": "That could not be done; the records disagree. Nothing was changed.",
+	"constraint": "That could not be done; the records refused it. Nothing was changed.",
 }
 
 var store: ItemStore
 var access: Callable
+## Optional durable gate: persist(actor, plan, changes) -> "" when the change is
+## durably committed, otherwise a failure code. Called after validation and
+## BEFORE memory is touched, so a storage failure leaves everything unchanged.
+var persist: Callable
 
 
 func _init(p_store: ItemStore, p_access: Callable) -> void:
@@ -127,6 +135,45 @@ func plan(actor: String, uid: int, from: Dictionary, to: Dictionary, qty: int = 
 		"from": cur.duplicate(), "to": dest, "qty": q, "split": q < it.quantity, "merge": merge, "swap": swap}
 
 
+## The rows a plan changes, in storage terms (version = what we last saw; 0 = new).
+func durable_changes(p: Dictionary) -> Array:
+	var uid: int = p["uid"]
+	var it := store.item(uid)
+	var q: int = p["qty"]
+	var ch: Array = []
+	var row := func(id: int, def: String, qty: int, loc: Dictionary, ver: int) -> Dictionary:
+		return {"op": "upsert", "uid": id, "def": def, "qty": qty, "loc": ItemLocation.to_wire(loc), "expect_version": ver}
+	if p["split"]:
+		ch.append(row.call(uid, it.def_id, it.quantity - q, store.location(uid), it.version))
+		if p["merge"]:
+			var m := store.item(p["merge"])
+			ch.append(row.call(m.uid, m.def_id, m.quantity + q, store.location(m.uid), m.version))
+		else:
+			if not p.has("new_uid"):
+				p["new_uid"] = store.reserve_uid()
+			ch.append(row.call(p["new_uid"], it.def_id, q, p["to"], 0))
+	elif p["swap"]:
+		var o := store.item(p["swap"])
+		ch.append(row.call(o.uid, o.def_id, o.quantity, p["from"], o.version))
+		ch.append(row.call(uid, it.def_id, it.quantity, p["to"], it.version))
+	elif p["merge"]:
+		var m := store.item(p["merge"])
+		ch.append(row.call(m.uid, m.def_id, m.quantity + it.quantity, store.location(m.uid), m.version))
+		ch.append({"op": "delete", "uid": uid, "expect_version": it.version})
+	else:
+		ch.append(row.call(uid, it.def_id, it.quantity, p["to"], it.version))
+	return ch
+
+
+## Run the durable gate (if any). "" = committed (or no gate).
+func persist_plan(p: Dictionary) -> String:
+	if not persist.is_valid():
+		return ""
+	var changes := durable_changes(p)
+	p["changes"] = changes
+	return str(persist.call(p["actor"], p, changes))
+
+
 ## Apply a plan produced by plan(). Returns presentation events.
 func commit(p: Dictionary) -> Array:
 	var uid: int = p["uid"]
@@ -139,7 +186,7 @@ func commit(p: Dictionary) -> Array:
 			store.item(p["merge"]).quantity += int(p["qty"])
 			result_uid = p["merge"]
 		else:
-			result_uid = store._create(it.def_id, int(p["qty"]))
+			result_uid = store._create(it.def_id, int(p["qty"]), int(p.get("new_uid", 0)))
 			store._place(result_uid, p["to"])
 	elif p["swap"]:
 		var other: int = p["swap"]
@@ -158,6 +205,10 @@ func commit(p: Dictionary) -> Array:
 		store._place(uid, p["to"])
 	events.append({"type": "item_moved", "uid": result_uid, "source_uid": uid, "def": p["def"],
 		"from": p["from"], "to": p["to"], "qty": p["qty"], "actor": p["actor"]})
+	for ch in p.get("changes", []):   # mirror the database's version bump
+		var ci := store.item(int(ch["uid"]))
+		if ci and ch["op"] == "upsert" and int(ch["expect_version"]) > 0:
+			ci.version = int(ch["expect_version"]) + 1
 	store.revision += 1
 	var errs := store.check_invariants()
 	if not errs.is_empty():

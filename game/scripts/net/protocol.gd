@@ -3,7 +3,7 @@ class_name Protocol
 ## All schemas live here; both sides validate everything they receive.
 ## Documented in docs/NETWORK_PROTOCOL.md - keep the two in sync.
 
-const VERSION := 1
+const VERSION := 2               # v2 (Slice 004): accounts, characters, persistence
 const DEFAULT_PORT := 24680
 const MAP := "res://data/maps/homestead.json"
 
@@ -37,9 +37,17 @@ const ITEMS := "items"           # {up: [[uid, def, qty, loc]], rm: [uid]}
 const EVENT := "event"           # {e: event dictionary (wire form)}
 const RESULT := "result"         # {rid, ok, code, message}
 const PONG := "pong"             # {time, server_time}
+# Slice 004 (persistent realms): accounts and characters
+const AUTH := "auth"             # C->S {rid, op: register|login|resume|logout, args}
+const AUTH_RESULT := "auth_res"  # S->C {rid, ok, code, message, data}
+const CHARS := "chars"           # C->S {rid, op: list|create|enter|leave, args}
+const CHARS_RESULT := "chars_res"# S->C {rid, ok, code, message, data}
+const REALM := "realm"           # S->C {persistent, realm, max_characters, secure}
+const LEFT_WORLD := "left"       # S->C {reason}   (back to character selection)
+const MAX_CHARACTERS := 3
 # server -> client, unreliable ordered
 const STATE := "state"           # {tick, time, ack, players: [[actor, x, y, facing, moving, running]]}
-# P = [actor, name, x, y, facing, linkdead]
+# P = [actor, name, x, y, facing, linkdead, appearance]
 
 const SCHEMAS := {
 	HELLO: {"name": TYPE_STRING},
@@ -59,9 +67,41 @@ const SCHEMAS := {
 	RESULT: {"rid": TYPE_INT, "ok": TYPE_BOOL, "code": TYPE_STRING, "message": TYPE_STRING},
 	PONG: {"time": TYPE_FLOAT, "server_time": TYPE_FLOAT},
 	STATE: {"tick": TYPE_INT, "time": TYPE_FLOAT, "ack": TYPE_INT, "players": TYPE_ARRAY},
+	AUTH: {"rid": TYPE_INT, "op": TYPE_STRING, "args": TYPE_DICTIONARY},
+	AUTH_RESULT: {"rid": TYPE_INT, "ok": TYPE_BOOL, "code": TYPE_STRING, "message": TYPE_STRING, "data": TYPE_DICTIONARY},
+	CHARS: {"rid": TYPE_INT, "op": TYPE_STRING, "args": TYPE_DICTIONARY},
+	CHARS_RESULT: {"rid": TYPE_INT, "ok": TYPE_BOOL, "code": TYPE_STRING, "message": TYPE_STRING, "data": TYPE_DICTIONARY},
+	REALM: {"persistent": TYPE_BOOL, "realm": TYPE_STRING, "max_characters": TYPE_INT, "secure": TYPE_BOOL},
+	LEFT_WORLD: {"reason": TYPE_STRING},
 }
 
-const CLIENT_TO_SERVER: PackedStringArray = [HELLO, CMD, PING, BYE, INPUT]
+const AUTH_OPS := {"register": {"username": TYPE_STRING, "password": TYPE_STRING},
+	"login": {"username": TYPE_STRING, "password": TYPE_STRING},
+	"resume": {"token": TYPE_STRING}, "logout": {}}
+const CHAR_OPS := {"list": {}, "create": {"name": TYPE_STRING, "appearance": TYPE_DICTIONARY},
+	"enter": {"character_id": TYPE_INT}, "leave": {}}
+const APPEARANCE_CLOTH: PackedStringArray = ["olive", "crimson", "azure", "umber", "plum"]
+
+
+## Validate {op, args} of AUTH / CHARS against the table: exact keys, types, sizes.
+static func validate_op(table: Dictionary, op: String, args: Dictionary) -> String:
+	if not table.has(op):
+		return "unknown_op"
+	var want: Dictionary = table[op]
+	if args.size() != want.size():
+		return "bad_args"
+	for k in want:
+		if not args.has(k) or typeof(args[k]) != want[k]:
+			return "bad_" + k
+		if args[k] is String and (args[k] as String).length() > 128:
+			return "too_long_" + k
+	if args.has("appearance"):
+		var a: Dictionary = args["appearance"]
+		if a.size() != 1 or not (a.get("cloth") is String) or not APPEARANCE_CLOTH.has(a["cloth"]):
+			return "bad_appearance"
+	return ""
+
+const CLIENT_TO_SERVER: PackedStringArray = [HELLO, CMD, PING, BYE, INPUT, AUTH, CHARS]
 
 
 static func make(t: String, fields := {}) -> Dictionary:

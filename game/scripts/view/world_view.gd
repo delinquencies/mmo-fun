@@ -185,6 +185,7 @@ func _sync_actors() -> void:
 			var av := ActorSprite.new()
 			av.name = "Actor_" + a
 			av.setup(aset, "player", a == sim.local_actor)
+			av.set_appearance(sim.players[a].appearance)
 			entities.add_child(av)
 			shadows.add_child(av.shadow)
 			shadows.add_child(av.overlay_shadow)

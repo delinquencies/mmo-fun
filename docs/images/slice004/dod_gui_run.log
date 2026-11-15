@@ -1,0 +1,79 @@
+PASS  Alice: registered and logged in via the login window
+-- step: dod_alice_1_character_select  (player 17.50, 10.60)
+PASS  Alice: created character and entered the world
+PASS  Alice: appearance is { "cloth": "crimson" }
+PASS  Alice: the sword lies on the ground
+PASS  Alice: picked up the sword
+PASS  Alice: equipped it (drag to Main Hand)
+SAVED_POS 21.303 12.901
+-- step: alice_1_equipped  (player 21.30, 12.90)
+PASS  Alice: left the world (character selection)
+PASS  Alice: logged out
+
+scenario dod_alice_1: 8 checks, 0 failures
+PASS  Alice: logged in via the login window
+-- step: dod_alice_2_character_select  (player 17.50, 10.60)
+PASS  Alice: selected character and entered the world
+PASS  Alice: appearance is { "cloth": "crimson" }
+PASS  Alice: back where she logged out (21.30, 12.90)
+PASS  Alice: the sword is still equipped after the server restart
+PASS  Alice: equipment window shows it
+PASS  Alice: Bob is in the world too
+PASS  Alice: cannot see Bob's backpack contents
+-- step: alice_2_after_restart  (player 21.30, 12.90)
+PASS  Alice: left the world (character selection)
+PASS  Alice: logged out
+
+scenario dod_alice_2: 10 checks, 0 failures
+PASS  Bob: registered and logged in via the login window
+-- step: dod_bob_1_character_select  (player 17.50, 10.60)
+PASS  Bob: created character and entered the world
+PASS  Bob: appearance is { "cloth": "azure" }
+PASS  Bob: apples by the trough
+PASS  Bob: picked up the apples
+PASS  Bob: door open
+PASS  Bob: chest window open
+PASS  Bob: deposited the apples in the chest (slot 8)
+-- step: bob_1_deposited  (player 13.83, 8.67)
+PASS  Bob: left the world (character selection)
+PASS  Bob: logged out
+
+scenario dod_bob_1: 10 checks, 0 failures
+PASS  Bob: logged in via the login window
+-- step: dod_bob_2_character_select  (player 17.50, 10.60)
+PASS  Bob: selected character and entered the world
+PASS  Bob: appearance is { "cloth": "azure" }
+PASS  Bob: back beside the chest where he left
+PASS  Bob: chest opened
+PASS  Bob: his apples are still in the chest after the restart
+PASS  Bob: Alice is in the world
+PASS  Bob: sees Alice's sword
+-- step: bob_2_after_restart  (player 14.46, 8.53)
+PASS  Bob: left the world (character selection)
+PASS  Bob: logged out
+
+scenario dod_bob_2: 10 checks, 0 failures
+[server    0.00] persistent world loaded: 5 items, seeded ["cottage_chest", "spawn_iron_sword", "spawn_trough_apples"]
+[server    0.00] persistent realm 'The Homestead', DTLS on; 
+[server    0.00] listening on 127.0.0.1:24731  (tick 30 Hz, state 12 Hz, protocol v2)
+[server    4.87] account 1 authenticated on peer 1032269887
+[server    6.90] Alice (character 1, account 1) entered at (17.5, 10.6)
+[server    7.40] account 2 authenticated on peer 390461425
+[server    9.77] Bob (character 2, account 2) entered at (17.5, 10.6)
+[server   13.43] Alice (character 1) left the world; saved and unloaded
+[server   21.33] Bob (character 2) left the world; saved and unloaded
+[server] graceful shutdown requested
+[server   23.17] saved 0 character(s): server shutdown
+[server   23.17] stopped
+[server    0.00] persistent world loaded: 5 items, seeded ["spawn_trough_apples"]
+[server    0.00] persistent realm 'The Homestead', DTLS on; 
+[server    0.00] listening on 127.0.0.1:24731  (tick 30 Hz, state 12 Hz, protocol v2)
+[server    4.40] account 1 authenticated on peer 62965156
+[server    5.07] Alice (character 1, account 1) entered at (21.3, 12.9)
+[server    6.73] account 2 authenticated on peer 891695674
+[server    7.77] Bob (character 2, account 2) entered at (13.8, 8.7)
+[server   11.77] Bob (character 2) left the world; saved and unloaded
+[server   16.07] Alice (character 1) left the world; saved and unloaded
+[server] graceful shutdown requested
+[server   18.13] saved 0 character(s): server shutdown
+[server   18.13] stopped

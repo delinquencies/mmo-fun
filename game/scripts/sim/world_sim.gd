@@ -103,6 +103,7 @@ func _load_interactables(spawn_items := true) -> void:
 		ent.def = interactable_defs[ent.def_id]
 		ent.kind = ent.def["kind"]
 		ent.pos = Vector2(e["x"], e["y"])
+		ent.policy = e.get("persistence", "temporary")
 		if ent.kind == "chest":
 			ent.container_id = ent.id + ".contents"
 			items.add_container(ContainerComponent.new(ent.container_id, ent.display_name(), ent.id,
@@ -116,8 +117,9 @@ func _load_interactables(spawn_items := true) -> void:
 
 
 ## Create a character with its backpack and equipment.
-func add_player(actor: String, display_name: String, pos: Vector2) -> PlayerState:
+func add_player(actor: String, display_name: String, pos: Vector2, appearance: Dictionary = {}) -> PlayerState:
 	var ps := PlayerState.new(actor, display_name, pos)
+	ps.appearance = appearance
 	players[actor] = ps
 	if not items.containers.has("%s.backpack" % actor):
 		items.add_container(ContainerComponent.new("%s.backpack" % actor, "Backpack", actor, 15, 5))
@@ -129,10 +131,21 @@ func add_player(actor: String, display_name: String, pos: Vector2) -> PlayerStat
 ## Remove a character. Anything it carried is placed on the ground at its feet
 ## so no item is ever lost with a session (temporary sessions own nothing
 ## permanently until persistence exists).
-func remove_player(actor: String) -> Array[int]:
+func remove_player(actor: String, drop_items := true) -> Array[int]:
 	var dropped: Array[int] = []
 	var ps: PlayerState = players.get(actor)
 	if ps == null:
+		return dropped
+	if not drop_items:
+		# persistent character: its items stay in storage, we only forget them
+		items.unload_actor(actor)
+		items.containers.erase("%s.backpack" % actor)
+		items.equipment.erase(actor)
+		if interaction:
+			interaction.open_containers.erase(actor)
+		players.erase(actor)
+		items.revision += 1
+		items.changed.emit()
 		return dropped
 	var spots := 0
 	for uid in items.items.keys():

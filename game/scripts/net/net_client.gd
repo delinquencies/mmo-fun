@@ -15,6 +15,10 @@ signal world_ready
 signal event_emitted(event: Dictionary)
 signal command_resolved(result: Dictionary)
 signal players_changed
+signal realm_ready(info: Dictionary)          # persistent realm: log in next
+signal auth_result(result: Dictionary)
+signal chars_result(result: Dictionary)
+signal left_world(reason: String)
 
 var sim: WorldSim
 var net := NetChannel.new()
@@ -47,6 +51,16 @@ var corrections := 0
 var max_correction := 0.0
 var last_result: Dictionary = {}
 
+# Slice 004
+var realm: Dictionary = {}
+var secure := false               # DTLS in use
+var tls_cert_path := ""           # pinned server certificate; default: <repo>/.dev/tls/server.crt
+var tls_hostname := "localhost"
+var _token := ""                  # account session token: memory only, never written to disk
+var _pending_auth_op: Dictionary = {}   # rid -> op
+var last_auth: Dictionary = {}
+var last_chars: Dictionary = {}
+
 
 func _enter_tree() -> void:
 	get_tree().set_multiplayer(SceneMultiplayer.new(), get_path())
@@ -70,6 +84,14 @@ func connect_to(p_address: String, p_port: int, p_name: String) -> Error:
 	if err != OK:
 		_set_state("failed", "Could not start a connection (%s)." % error_string(err))
 		return err
+	secure = false
+	var cert := _load_cert()
+	if cert:
+		err = enet.host.dtls_client_setup(tls_hostname, TLSOptions.client(cert))
+		if err != OK:
+			_set_state("failed", "Could not set up encryption (%s)." % error_string(err))
+			return err
+		secure = true
 	var smp := multiplayer as SceneMultiplayer
 	smp.allow_object_decoding = false
 	multiplayer.multiplayer_peer = enet
@@ -83,8 +105,51 @@ func connect_to(p_address: String, p_port: int, p_name: String) -> Error:
 	return OK
 
 
+func _load_cert() -> X509Certificate:
+	var path := tls_cert_path
+	if path == "":
+		path = ProjectSettings.globalize_path("res://").path_join("../.dev/tls/server.crt").simplify_path()
+	if not FileAccess.file_exists(path):
+		return null
+	var c := X509Certificate.new()
+	return c if c.load(path) == OK else null
+
+
+static func is_loopback(host: String) -> bool:
+	return host == "127.0.0.1" or host == "localhost" or host == "::1"
+
+
+## Account requests (register / login / resume / logout). Returns the rid.
+func send_auth(op: String, args: Dictionary) -> int:
+	if (op == "login" or op == "register") and not secure and not is_loopback(address):
+		var r := {"rid": 0, "ok": false, "code": "insecure", "message": "Refusing to send a password over an unencrypted connection. Install the server's certificate.", "data": {}}
+		auth_result.emit(r)
+		return 0
+	_rid += 1
+	_pending_auth_op[_rid] = op
+	net.send(1, Protocol.make(Protocol.AUTH, {"rid": _rid, "op": op, "args": args}))
+	if op == "logout":
+		_token = ""
+	return _rid
+
+
+## Character requests (list / create / enter / leave). Returns the rid.
+func send_chars(op: String, args: Dictionary = {}) -> int:
+	_rid += 1
+	net.send(1, Protocol.make(Protocol.CHARS, {"rid": _rid, "op": op, "args": args}))
+	return _rid
+
+
+func has_token() -> bool:
+	return _token != ""
+
+
+func forget_token() -> void:
+	_token = ""
+
+
 func disconnect_from_server(reason := "You left the world.") -> void:
-	if enet and state == "connected":
+	if enet and state in ["connected", "login", "account"]:
 		net.send(1, Protocol.make(Protocol.BYE))
 		net.flush_all()
 		enet.get_peer(1).peer_disconnect_later()
@@ -122,6 +187,7 @@ func _teardown(s: String, why: String) -> void:
 	_pending_inputs.clear()
 	_pending_cmds.clear()
 	_buffers.clear()
+	sim = null if s != "connected" else sim
 	_set_state(s, why)
 
 
@@ -130,6 +196,7 @@ func _on_connected() -> void:
 	if p:
 		p.set_timeout(0, 2000, 6000)
 	net.send(1, Protocol.make(Protocol.HELLO, {"name": player_name}))
+	_connect_deadline = Time.get_ticks_msec() / 1000.0 + 1e9
 
 
 func _on_connection_failed() -> void:
@@ -183,6 +250,36 @@ func _on_message(peer: int, msg: Variant, _reliable: bool) -> void:
 	match msg["t"]:
 		Protocol.WELCOME:
 			_on_welcome(msg)
+		Protocol.REALM:
+			realm = msg
+			_set_state("login", "Connected to %s (%s)." % [msg["realm"], "encrypted" if secure else "unencrypted, local only"])
+			realm_ready.emit(msg)
+			if _token != "":
+				send_auth("resume", {"token": _token})
+		Protocol.AUTH_RESULT:
+			var op: String = _pending_auth_op.get(msg["rid"], "")
+			_pending_auth_op.erase(msg["rid"])
+			if msg["ok"]:
+				if msg["data"].has("token"):
+					_token = msg["data"]["token"]
+				if op in ["login", "resume"]:
+					player_name = msg["data"].get("username", player_name)
+					_set_state("account", "Logged in as %s." % msg["data"].get("username", "?"))
+				elif op == "logout":
+					_set_state("login", "Logged out.")
+			elif op == "resume":
+				_token = ""
+			last_auth = msg
+			auth_result.emit(msg)
+		Protocol.CHARS_RESULT:
+			last_chars = msg
+			chars_result.emit(msg)
+		Protocol.LEFT_WORLD:
+			sim = null
+			_pending_inputs.clear()
+			_buffers.clear()
+			_set_state("account", msg["reason"])
+			left_world.emit(msg["reason"])
 		Protocol.REJECT:
 			_teardown("failed", "Server refused: %s" % msg["reason"])
 		Protocol.PLAYER_JOIN:
@@ -244,7 +341,7 @@ func _on_welcome(msg: Dictionary) -> void:
 func _add_player(p: Array) -> void:
 	if sim == null or sim.players.has(p[0]):
 		return
-	var ps := sim.add_player(p[0], p[1], Vector2(p[2], p[3]))
+	var ps := sim.add_player(p[0], p[1], Vector2(p[2], p[3]), p[6] if p.size() > 6 and p[6] is Dictionary else {})
 	ps.facing = p[4]
 	ps.linkdead = p[5]
 	ps.sync_render()

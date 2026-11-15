@@ -4,12 +4,14 @@ extends GameWindow
 
 signal connect_requested(address: String, port: int, player_name: String)
 signal disconnect_requested
+signal leave_world_requested
 
 var address_edit := LineEdit.new()
 var port_edit := LineEdit.new()
 var name_edit := LineEdit.new()
 var connect_btn := Button.new()
 var disconnect_btn := Button.new()
+var leave_world_btn := Button.new()
 var status := UISkin.label("Offline - single-player world", UISkin.TEXT_DIM, 12)
 
 
@@ -63,7 +65,12 @@ func _init() -> void:
 	connect_btn.pressed.connect(_on_connect)
 	disconnect_btn.pressed.connect(func(): disconnect_requested.emit())
 	name_edit.text_submitted.connect(func(_t): _on_connect())
+	leave_world_btn.text = "Leave world"
+	_button_style(leave_world_btn)
+	leave_world_btn.pressed.connect(func(): leave_world_requested.emit())
+	leave_world_btn.visible = false
 	row.add_child(connect_btn)
+	row.add_child(leave_world_btn)
 	row.add_child(disconnect_btn)
 	content.add_child(row)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -88,9 +95,10 @@ func set_state(state: String, detail: String) -> void:
 		"failed":
 			c = UISkin.BAD
 	status.add_theme_color_override("font_color", c)
-	connect_btn.disabled = state == "connecting" or state == "connected"
-	disconnect_btn.disabled = state != "connected" and state != "connecting"
+	connect_btn.disabled = state in ["connecting", "connected", "login", "account"]
+	disconnect_btn.disabled = not (state in ["connected", "connecting", "login", "account"])
+	disconnect_btn.text = "Disconnect"
 	for e in [address_edit, port_edit, name_edit]:
-		e.editable = state != "connected" and state != "connecting"
+		e.editable = not (state in ["connected", "connecting", "login", "account"])
 	if is_inside_tree():
 		fit()

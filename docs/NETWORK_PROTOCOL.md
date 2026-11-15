@@ -1,4 +1,9 @@
-# Multiplayer: Protocol, Authority and Replication (Slice 003)
+# Multiplayer: Protocol, Authority and Replication (Slices 003–004)
+
+> **Protocol version 2 (Slice 004).** Version 2 adds the persistent-realm
+> messages below and DTLS on every connection. A v1 client is rejected with a
+> `bad_version` error. Persistence and accounts are covered in
+> [PERSISTENCE.md](PERSISTENCE.md).
 
 Code lives in `game/scripts/net/`. The protocol constants and message schemas
 are in `protocol.gd`, and that file is the single source of truth: keep this
@@ -22,8 +27,11 @@ document in sync with it.
   keeps RPC paths identical on both sides, and lets the tests run a real
   server and two real clients in one process.
 - **Binding:** the server binds to **127.0.0.1 by default**. LAN play needs an
-  explicit `--bind=0.0.0.0` (or a LAN IP). This is an unauthenticated
-  development server; never expose it to the internet.
+  explicit `--bind=0.0.0.0` (or a LAN IP). It has not been hardened for
+  public deployment.
+- **Encryption:** client traffic is **DTLS**, with a certificate the client
+  pins (`.dev/tls/server.crt` in development). A persistent server refuses
+  non-loopback binds without TLS.
 
 ## State ownership
 
@@ -39,6 +47,31 @@ document in sync with it.
 A client never sends a position, an inventory, a quantity it owns, or an
 object state. The only things it sends are **movement intent** and
 **commands**.
+
+## Persistent realms (v2)
+
+When the server runs with `--persistent`:
+1. The server answers `hello` with `realm` instead of `welcome`.
+2. The client logs in.
+3. It lists or creates characters.
+4. It enters with a character id. `welcome` then follows exactly as in Slice
+   003; the actor is `c<character id>`.
+5. `chars leave` returns to character selection with a `left` message. After
+   that, movement and commands are not accepted until the client enters again.
+
+| t | Direction | Fields |
+|---|---|---|
+| `realm` | S→C | `persistent`, `realm`, `max_characters`, `secure` (DTLS active) |
+| `auth` | C→S | `rid`, `op`, `args`. Ops: `register {username, password}`, `login {username, password}`, `resume {token}`, `logout {}` |
+| `auth_res` | S→C | `rid`, `ok`, `code`, `message`, `data`. `login` returns `{username, token}`. |
+| `chars` | C→S | `rid`, `op`, `args`. Ops: `list {}`, `create {name, appearance: {cloth}}`, `enter {character_id}`, `leave {}` |
+| `chars_res` | S→C | `rid`, `ok`, `code`, `message`, `data`. `list` returns `{characters, max}`; `create` returns `{character}`; `enter` returns `{character_id, takeover?}`. |
+| `left` | S→C | `reason` |
+
+`P` records gain a 7th field, `appearance`.
+
+Argument names and types are validated exactly by `Protocol.validate_op()`.
+Ownership always comes from the server-side account of the connection.
 
 ## Envelope
 

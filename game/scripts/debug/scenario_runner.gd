@@ -208,7 +208,8 @@ func _run_mp_alice() -> void:
 	check(await _until(func(): return door.open, 3.0), "Alice: door opened through the server")
 	var sword := 0
 	for uid in sim.items.world_items():
-		sword = uid
+		if sim.items.item(uid).def_id == "iron_sword":
+			sword = uid
 	check(sword != 0, "Alice: sword visible on the ground (replicated)")
 	var spos: Vector2 = sim.items.location(sword)["pos"]
 	await walk_to(spos + Vector2(0.7, -0.3))
@@ -236,7 +237,7 @@ func _run_mp_bob() -> void:
 	var alice := _other_actor()
 	check(alice != "", "Bob: sees another player (%s)" % (sim.players[alice].display_name if alice != "" else "-"))
 	check(await _until(func(): return main.sim.entities["cottage_door"].open, 20.0), "Bob: sees the door open (opened by Alice)")
-	check(await _until(func(): return main.sim.items.world_items().is_empty(), 20.0), "Bob: sees the sword disappear from the ground")
+	check(await _until(func(): return not main.sim.items.world_items().any(func(u): return main.sim.items.item(u).def_id == "iron_sword"), 20.0), "Bob: sees the sword disappear from the ground")
 	check(await _until(func(): return main.sim.items.equipped(alice, "main_hand") != 0, 20.0), "Bob: sees the sword in Alice's hand")
 	check(await _until(func(): return main.views[0].actor_views.has(alice) and main.views[0].actor_views[alice].overlay.visible, 5.0), "Bob: Alice is drawn with the weapon layer")
 	await seconds(2.5)
@@ -261,6 +262,140 @@ func _until(cond: Callable, timeout: float) -> bool:
 	return true
 
 
+# --- Slice 004 Definition of Done (persistent realm, UI-driven) -------------------
+
+func press(b: Control) -> void:
+	await frames(2)
+	await click(b.get_global_transform_with_canvas() * (b.size * 0.5))
+	await frames(3)
+
+
+func _ui_login(user: String, pw: String, register: bool) -> bool:
+	var lw: LoginWindow = main.login_win
+	if not await _until(func(): return lw.visible, 20.0):
+		return false
+	lw.user_edit.text = user
+	lw.pass_edit.text = pw
+	if register:
+		await press(lw.register_btn)
+		if not await _until(func(): return lw.status.text.contains("created") or lw.status.text.contains("taken"), 8.0):
+			return false
+	await press(lw.login_btn)
+	return await _until(func(): return main.char_win.visible and main.net.state == "account", 8.0)
+
+
+func _ui_enter(char_name: String, cloth: String, create: bool) -> bool:
+	var cw: CharacterWindow = main.char_win
+	if create:
+		cw.name_edit.text = char_name
+		await press(cw.swatches[cloth])
+		await press(cw.create_btn)
+		if not await _until(func(): return cw.status.text.contains("created"), 8.0):
+			return false
+	if not await _until(func(): return cw.enter_buttons.size() > 0, 8.0):
+		return false
+	await frames(5)
+	await shot("%s_character_select" % name_)
+	await press(cw.enter_buttons.values()[0])
+	return await _wait_online(1, 10.0)
+
+
+func _run_dod() -> void:
+	var role: String = name_.trim_prefix("dod_")
+	var me := "Alice" if role.begins_with("alice") else "Bob"
+	var user := me.to_lower()
+	var pw := "silver lantern 42" if me == "Alice" else "oak and iron 7"
+	var first := role.ends_with("_1")
+	check(await _ui_login(user, pw, first), "%s: %s via the login window" % [me, "registered and logged in" if first else "logged in"])
+	check(await _ui_enter(me, "crimson" if me == "Alice" else "azure", first), "%s: %s character and entered the world" % [me, "created" if first else "selected"])
+	var sim: WorldSim = main.sim
+	var ui: GameUI = main.game_ui
+	var my := sim.local_actor
+	check(sim.players[my].appearance.get("cloth", "") == ("crimson" if me == "Alice" else "azure"), "%s: appearance is %s" % [me, sim.players[my].appearance])
+	if role == "alice_1":
+		var sword := 0
+		for uid in sim.items.world_items():
+			if sim.items.item(uid).def_id == "iron_sword":
+				sword = uid
+		check(sword != 0, "Alice: the sword lies on the ground")
+		await walk_to(sim.items.location(sword)["pos"] + Vector2(0.7, -0.3))
+		await double_click(entity_screen("item:%d" % sword))
+		check(await _until(func(): return main.sim.items.location(sword).get("container", "") == my + ".backpack", 4.0), "Alice: picked up the sword")
+		await frames(4)
+		await drag(slot_screen(slot_of(ui.backpack, sword)), slot_screen(ui.equipment_win.slots[0]))
+		check(await _until(func(): return main.sim.items.equipped(my, "main_hand") == sword, 4.0), "Alice: equipped it (drag to Main Hand)")
+		await walk_to(Vector2(21.3, 12.9))
+		var p: Vector2 = main.sim.player_pos
+		say("SAVED_POS %.3f %.3f" % [p.x, p.y])
+		await seconds(1.0)
+		await shot("alice_1_equipped")
+	elif role == "bob_1":
+		var apples := 0
+		for uid in sim.items.world_items():
+			if sim.items.item(uid).def_id == "red_apple":
+				apples = uid
+		check(apples != 0, "Bob: apples by the trough")
+		var ap: Vector2 = sim.items.location(apples)["pos"]
+		await walk_to(ap + Vector2(0.6, 0.6))
+		await double_click(entity_screen("item:%d" % apples))
+		check(await _until(func(): return main.sim.items.location(apples).get("container", "") == my + ".backpack", 4.0), "Bob: picked up the apples")
+		var door: Interactable = sim.entities["cottage_door"]
+		await walk_to(ap + Vector2(2.2, -0.6))
+		await walk_to(Vector2(16.4, 13.6))
+		await walk_to(door.pos + Vector2(0.95, 0.1))
+		if not door.open:
+			await double_click(entity_screen("cottage_door"))
+		check(await _until(func(): return main.sim.entities["cottage_door"].open, 4.0), "Bob: door open")
+		await walk_to(door.pos + Vector2(0.2, 0.0))
+		await walk_to(door.pos + Vector2(-0.85, 0.0))
+		var chest: Interactable = sim.entities["cottage_chest"]
+		await walk_to(chest.pos + Vector2(0.95, 0.35))
+		await double_click(entity_screen("cottage_chest"))
+		check(await _until(func(): return ui.chest_windows.has(chest.container_id), 4.0), "Bob: chest window open")
+		await frames(10)
+		var cw: ContainerWindow = ui.chest_windows[chest.container_id]
+		await drag(slot_screen(slot_of(ui.backpack, apples)), slot_screen(cw.slots[7]))
+		check(await _until(func(): return main.sim.items.occupant(ItemLocation.container(chest.container_id, 7)) == apples, 4.0), "Bob: deposited the apples in the chest (slot 8)")
+		await seconds(1.0)
+		await shot("bob_1_deposited")
+	elif role == "alice_2":
+		var exp: PackedStringArray = String(main.cli.get("expect_pos", "0,0")).split(",")
+		var want := Vector2(float(exp[0]), float(exp[1]))
+		check(main.sim.player_pos.distance_to(want) < 0.1, "Alice: back where she logged out (%.2f, %.2f)" % [main.sim.player_pos.x, main.sim.player_pos.y])
+		check(await _until(func(): return main.sim.items.equipped(my, "main_hand") != 0, 4.0), "Alice: the sword is still equipped after the server restart")
+		check(ui.equipment_win.slots[0].uid != 0, "Alice: equipment window shows it")
+		check(await _until(func(): return main.sim.players.size() >= 2, 25.0), "Alice: Bob is in the world too")
+		var bob := _other_actor()
+		check(main.sim.items.containers.has(bob + ".backpack") == false or main.sim.items.containers[bob + ".backpack"].used() == 0, "Alice: cannot see Bob's backpack contents")
+		await seconds(2.0)
+		await shot("alice_2_after_restart")
+		await seconds(6.0)
+	elif role == "bob_2":
+		var chest: Interactable = sim.entities["cottage_chest"]
+		check(main.sim.player_pos.distance_to(chest.pos) < 2.0, "Bob: back beside the chest where he left")
+		await double_click(entity_screen("cottage_chest"))
+		check(await _until(func(): return ui.chest_windows.has(chest.container_id), 4.0), "Bob: chest opened")
+		var apples_ok := await _until(func():
+			var u: int = main.sim.items.occupant(ItemLocation.container(chest.container_id, 7))
+			return u != 0 and main.sim.items.item(u).def_id == "red_apple", 4.0)
+		check(apples_ok, "Bob: his apples are still in the chest after the restart")
+		check(await _until(func(): return main.sim.players.size() >= 2, 20.0), "Bob: Alice is in the world")
+		var alice := _other_actor()
+		check(await _until(func(): return main.sim.items.equipped(alice, "main_hand") != 0, 6.0), "Bob: sees Alice's sword")
+		await walk_to(chest.pos + Vector2(1.6, 0.3))
+		await seconds(1.5)
+		await shot("bob_2_after_restart")
+	# leave the world through the UI, then log out
+	main.connect_win.visible = true
+	main.connect_win.leave_world_btn.visible = true
+	await press(main.connect_win.leave_world_btn)
+	check(await _until(func(): return main.char_win.visible and main.net.state == "account", 6.0), "%s: left the world (character selection)" % me)
+	await press(main.char_win.logout_btn)
+	check(await _until(func(): return main.login_win.visible and main.net.state == "login", 6.0), "%s: logged out" % me)
+	say("\nscenario %s: %d checks, %d failures" % [name_, checks, fails])
+	main.quit_game(1 if fails else 0)
+
+
 func _abort(why: String) -> void:
 	check(false, "ABORT: " + why)
 	say("\nscenario %s: %d checks, %d failures (aborted)" % [name_, checks, fails])
@@ -270,6 +405,9 @@ func _abort(why: String) -> void:
 # --- the run ---------------------------------------------------------------------
 
 func _run() -> void:
+	if name_.begins_with("dod_"):
+		await _run_dod()
+		return
 	if name_ == "mp_alice":
 		await _run_mp_alice()
 		return

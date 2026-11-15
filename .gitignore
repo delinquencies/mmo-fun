@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 *.nbi
 *.nbc
+# local development data and secrets (never committed)
+.dev/

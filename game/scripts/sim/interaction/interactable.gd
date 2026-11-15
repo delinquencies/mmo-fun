@@ -10,6 +10,7 @@ var kind: String
 var pos: Vector2
 var open := false
 var container_id := ""
+var policy := "temporary"   # permanent | resettable | temporary (see docs/PERSISTENCE.md)
 
 
 func display_name() -> String:

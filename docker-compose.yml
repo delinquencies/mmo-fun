@@ -1,0 +1,18 @@
+# Optional: PostgreSQL in Docker instead of tools/db/dev_db.sh.
+#   cp .dev/env.docker.example .dev/env   (fill in passwords) ; source .dev/env
+#   docker compose up -d && python3 tools/keeper/keeper.py migrate
+# Bound to localhost only. Passwords come from the environment, never from this file.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: mmo_keeper
+      POSTGRES_PASSWORD: ${MMO_DB_PASSWORD:?set MMO_DB_PASSWORD}
+      POSTGRES_DB: mmo
+      POSTGRES_INITDB_ARGS: --auth=scram-sha-256
+    ports:
+      - "127.0.0.1:${PGPORT:-55432}:5432"
+    volumes:
+      - mmo_pg:/var/lib/postgresql/data
+volumes:
+  mmo_pg:

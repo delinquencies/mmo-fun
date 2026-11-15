@@ -16,6 +16,10 @@ var sim: WorldSim
 var store: ItemStore
 var transfers: ItemTransferService
 var open_containers: Dictionary = {}   # actor -> Array[container id]
+## Optional durable gate for permanent world objects: (entity id, state) -> "" or code.
+var persist_world: Callable
+## Optional veto checked before any item command (e.g. storage degraded) -> "" or code.
+var item_guard: Callable
 var log_commands := false
 
 
@@ -157,9 +161,16 @@ func _access(actor: String, loc: Dictionary, purpose: String) -> String:
 # --- command handlers ------------------------------------------------------
 
 func _transfer(cmd: InteractionCommand, uid: int, from: Dictionary, to: Dictionary, qty: int) -> CommandResult:
+	if item_guard.is_valid():
+		var g: String = item_guard.call()
+		if g != "":
+			return CommandResult.failure(cmd, g, ItemTransferService.MESSAGES.get(g, g))
 	var p := transfers.plan(cmd.actor, uid, from, to, qty)
 	if not p["ok"]:
 		return CommandResult.failure(cmd, p["code"], p["message"])
+	var perr := transfers.persist_plan(p)
+	if perr != "":
+		return CommandResult.failure(cmd, perr, ItemTransferService.MESSAGES.get(perr, "That could not be done."))
 	var events := transfers.commit(p)
 	var d := store.def(p["def"])
 	var snd := ""
@@ -200,6 +211,10 @@ func _use(cmd: InteractionCommand) -> CommandResult:
 					for a in sim.players:
 						if _circle_rect(sim.actor_pos(a), WorldSim.PLAYER_RADIUS, r):
 							return CommandResult.failure(cmd, "obstructed", "Something is in the way.")
+			if persist_world.is_valid() and ent.policy == "permanent":
+				var werr: String = persist_world.call(ent.id, {"open": not ent.open})
+				if werr != "":
+					return CommandResult.failure(cmd, werr, ItemTransferService.MESSAGES.get(werr, "That could not be done."))
 			ent.open = not ent.open
 			events.append({"type": "door_changed", "id": ent.id, "open": ent.open})
 			events.append({"type": "sound", "name": ent.def["sounds"]["open" if ent.open else "close"], "pos": ent.pos})
