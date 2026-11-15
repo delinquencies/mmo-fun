@@ -131,6 +131,46 @@ func _destroy(uid: int) -> void:
 	items.erase(uid)
 
 
+# --- replica support (network clients only) ----------------------------------
+# A client's store mirrors only what the server says it may see. These apply
+# server-sent absolute records; they never decide anything.
+
+## Apply a batch from the server: removals, then two-phase upserts (vacate all,
+## then place all) so swaps inside one batch cannot clobber each other.
+func replica_apply(up: Array, rm: Array) -> void:
+	for uid in rm:
+		_destroy(int(uid))
+	for rec in up:
+		var uid := int(rec[0])
+		if items.has(uid):
+			_vacate(uid)
+	for rec in up:
+		var uid := int(rec[0])
+		var loc := ItemLocation.from_wire(rec[3])
+		var it: ItemInstance = items.get(uid)
+		if it == null:
+			it = ItemInstance.new(uid, str(rec[1]), int(rec[2]))
+			items[uid] = it
+		it.def_id = str(rec[1])
+		it.quantity = int(rec[2])
+		if loc["kind"] == "container" and not containers.has(loc["container"]):
+			add_container(ContainerComponent.new(loc["container"], "Container", "", 16, 4))
+		if loc["kind"] == "equipment" and not equipment.has(loc["owner"]):
+			add_equipment(EquipmentComponent.new(loc["owner"]))
+		var occ := occupant(loc)
+		if occ != 0 and occ != uid:
+			_vacate(occ)   # defensive: server batches never do this
+		_place(uid, loc)
+	revision += 1
+	changed.emit()
+
+
+## Server-side helper: a stable signature of what a client knows about an item.
+func signature(uid: int) -> String:
+	var it: ItemInstance = items[uid]
+	return "%s|%d|%s" % [it.def_id, it.quantity, ItemLocation.describe(locations.get(uid, {}))]
+
+
 ## Returns human-readable violations; empty = consistent.
 func check_invariants() -> PackedStringArray:
 	var errs := PackedStringArray()

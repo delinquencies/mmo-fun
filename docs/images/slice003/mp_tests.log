@@ -1,0 +1,107 @@
+   ok   [t01_two_clients] Alice connected
+   ok   [t01_two_clients] Bob connected
+   ok   [t01_two_clients] distinct server-assigned sessions (35c59621 / 2e4f2f55)
+   ok   [t01_two_clients] each client knows the other player
+   ok   [t01_two_clients] names replicated
+   ok   [t01_two_clients] server moved Alice by her intent (2.56 tiles)
+   ok   [t01_two_clients] Bob sees Alice where the server says
+   ok   [t01_two_clients] Bob sees Alice's facing (E)
+   ok   [t01_two_clients] Alice's predicted position agrees with the server
+PASS t01_two_clients
+   ok   [t02_shared_door] Alice reached the door
+   ok   [t02_shared_door] Bob reached the door
+   ok   [t02_shared_door] Alice opens the door (server state)
+   ok   [t02_shared_door] Bob sees the door open
+   ok   [t02_shared_door] Bob's collision reflects the open door
+   ok   [t02_shared_door] Bob closes the door
+   ok   [t02_shared_door] Alice sees it close
+   ok   [t02_shared_door] closed collision on server and Alice's replica
+   ok   [t02_shared_door] closing an already-closed door is rejected (idempotent)
+   ok   [t02_shared_door] Alice reopens it for the next test
+PASS t02_shared_door
+   ok   [t03_shared_chest] Alice walks in
+   ok   [t03_shared_chest] Alice at the chest
+   ok   [t03_shared_chest] Bob walks in
+   ok   [t03_shared_chest] Bob at the chest
+   ok   [t03_shared_chest] Alice opens the chest
+   ok   [t03_shared_chest] Bob opens the same chest
+   ok   [t03_shared_chest] both see the 3 items
+   ok   [t03_shared_chest] Alice takes the apples
+   ok   [t03_shared_chest] Bob's chest view updates (apples gone, not visible in Alice's pack)
+   ok   [t03_shared_chest] apples in Alice's replica backpack
+   ok   [t03_shared_chest] replicas consistent, totals conserved
+PASS t03_shared_chest
+   ok   [t04_simultaneous_pickup] Alice walks out
+   ok   [t04_simultaneous_pickup] Bob walks out
+   ok   [t04_simultaneous_pickup] Alice beside the sword
+   ok   [t04_simultaneous_pickup] Bob beside the sword
+   ok   [t04_simultaneous_pickup] both got a result
+   ok   [t04_simultaneous_pickup] exactly one pickup succeeded ( / stale)
+   ok   [t04_simultaneous_pickup] the other got a clear failure: 'That item is no longer there.'
+   ok   [t04_simultaneous_pickup] sword in the winner's backpack on the server
+   ok   [t04_simultaneous_pickup] the other client sees it vanish from the ground
+   ok   [t04_simultaneous_pickup] item total unchanged
+PASS t04_simultaneous_pickup
+   ok   [t05_equipment_replication] Alice equips the sword
+   ok   [t05_equipment_replication] Bob sees the sword in Alice's main hand
+   ok   [t05_equipment_replication] observer has the weapon layer to draw
+   ok   [t05_equipment_replication] unequip
+   ok   [t05_equipment_replication] observer sees the hand empty again (sword back in a private backpack)
+   ok   [t05_equipment_replication] re-equip for later tests
+   ok   [t05_equipment_replication] replicas consistent
+PASS t05_equipment_replication
+   ok   [t06_invalid_movement] oversized / NaN / malformed inputs rejected (5)
+   ok   [t06_invalid_movement] no movement and no teleport from bad inputs
+   ok   [t06_invalid_movement] a 'teleport' command does not exist (invalid)
+   ok   [t06_invalid_movement] flooded inputs cannot exceed run speed (0.56 tiles in 1.00s, cap 5.60)
+   ok   [t06_invalid_movement] excess inputs dropped (197)
+   ok   [t06_invalid_movement] Bob never sees Alice jump (max 0.044 tiles/frame)
+PASS t06_invalid_movement
+   ok   [t09_repeated_mutations] back inside
+   ok   [t09_repeated_mutations] at the chest
+   ok   [t09_repeated_mutations] same request id executed once, 9 duplicates answered from cache
+   ok   [t09_repeated_mutations] replays with new ids all rejected as stale (0 ok)
+   ok   [t09_repeated_mutations] coins not duplicated, totals conserved
+   ok   [t09_repeated_mutations] coins returned to the chest
+   ok   [t09_repeated_mutations] replica consistent
+PASS t09_repeated_mutations
+   ok   [t08_latency] walk out under 120ms+jitter, 10% loss
+   ok   [t08_latency] walk under 120ms+jitter, 10% loss
+   ok   [t08_latency] remote movement stays coherent (max 0.310 tiles/frame)
+   ok   [t08_latency] Bob converges to the authoritative position
+   ok   [t08_latency] Alice's prediction converges (corrections so far: 2, max 0.37)
+   ok   [t08_latency] commands still resolve under latency (answer: too_far)
+   ok   [t08_latency] item command under latency resolves without corrupting state (stale)
+   ok   [t08_latency] door state agrees everywhere
+   ok   [t08_latency] no state corruption under latency/loss
+PASS t08_latency
+   ok   [t07_disconnect] server marks the character link-dead
+   ok   [t07_disconnect] the other player sees the link-dead state
+   ok   [t07_disconnect] character removed after the linger timeout
+   ok   [t07_disconnect] removal replicated
+   ok   [t07_disconnect] the sword they carried was left on the ground, not lost
+   ok   [t07_disconnect] the remaining player sees the dropped sword
+   ok   [t07_disconnect] totals conserved through the disconnect
+   ok   [t07_disconnect] server keeps running with the other player
+   ok   [t07_disconnect] remaining player can still act (too_far)
+   ok   [t07_disconnect] the dropped client reconnects
+   ok   [t07_disconnect] and gets a fresh temporary session
+   ok   [t07_disconnect] both replicas consistent after reconnect
+PASS t07_disconnect
+   ok   [t10_stability] A at door
+   ok   [t10_stability] B at door
+   ok   [t10_stability] churn connect 0
+   ok   [t10_stability] no orphaned sessions or players (2 / 2)
+   ok   [t10_stability] no accumulating item instances (4 -> 4)
+   ok   [t10_stability] node count stable (8 -> 8)
+   ok   [t10_stability] object count stable (1509 -> 1681)
+      static memory 22.1 MB -> 24.9 MB
+   ok   [t10_stability] no runaway memory
+   ok   [t10_stability] consistent after 30 interaction cycles
+PASS t10_stability
+   ok   [t11_protocol_garbage] cannot take from another player's backpack (no_item)
+   ok   [t11_protocol_garbage] malformed messages counted and ignored (5)
+   ok   [t11_protocol_garbage] server and client unaffected
+PASS t11_protocol_garbage
+93 checks, 0 failures
+server stats: {"command_failures":16,"commands":59,"duplicates":9,"excess_inputs":198,"invalid_messages":7,"joins":9,"leaves":7,"rejected_inputs":5,"stale_inputs":2945}

@@ -122,6 +122,7 @@ func _can_drop_data(_at: Vector2, data: Variant) -> bool:
 
 func _drop_data(_at: Vector2, data: Variant) -> void:
 	drop_state = 0
+	ui.last_drop_slot = self
 	if not ui.transfer(data, loc):
 		flash = 1.0
 	queue_redraw()

@@ -1,0 +1,23 @@
+PASS  Alice: online with 2 players in the world
+PASS  Alice: door opened through the server
+PASS  Alice: sword visible on the ground (replicated)
+PASS  Alice: picked up the sword (server confirmed)
+PASS  Alice: equipped the sword via drag-and-drop
+-- step: mp_alice_view  (player 20.19, 11.61)
+
+scenario mp_alice: 5 checks, 0 failures
+PASS  Bob: online with 2 players in the world
+PASS  Bob: sees another player (Alice)
+PASS  Bob: sees the door open (opened by Alice)
+PASS  Bob: sees the sword disappear from the ground
+PASS  Bob: sees the sword in Alice's hand
+PASS  Bob: Alice is drawn with the weapon layer
+-- step: mp_bob_sees_alice  (player 19.00, 12.40)
+-- step: mp_bob_sees_alice_zoom3  (player 19.00, 12.40)
+
+scenario mp_bob: 6 checks, 0 failures
+[server    0.00] listening on 127.0.0.1:24690  (tick 30 Hz, state 12 Hz, protocol v1)
+[server    2.70] Bob joined as pc_7c0d0dac (session 7c0d0dac, peer 2026406530)
+[server    5.73] Alice joined as pc_01fb6481 (session 01fb6481, peer 578545384)
+[server   14.43] Bob (7c0d0dac) removed: left the world; 0 carried item(s) left on the ground
+[server   19.63] Alice (01fb6481) removed: left the world; 1 carried item(s) left on the ground

@@ -1,0 +1,388 @@
+class_name NetClient
+extends Node
+## Client side of the multiplayer protocol.
+##
+## Holds a *replica* WorldSim that is only ever changed by server messages
+## (plus local movement prediction, which the server corrects). Exposes the
+## same surface GameUI uses offline - submit(cmd) and the event_emitted signal -
+## so the UI does not know whether it is online.
+##
+## Must be the root of its own SceneMultiplayer branch (set up in _enter_tree),
+## with its NetChannel child named "Net" - mirroring GameServer.
+
+signal status_changed(state: String, detail: String)   # disconnected | connecting | connected | failed
+signal world_ready
+signal event_emitted(event: Dictionary)
+signal command_resolved(result: Dictionary)
+signal players_changed
+
+var sim: WorldSim
+var net := NetChannel.new()
+var enet: ENetMultiplayerPeer
+var state := "disconnected"
+var detail := ""
+var address := "127.0.0.1"
+var port := Protocol.DEFAULT_PORT
+var player_name := "Adventurer"
+var session_id := ""
+var actor := ""
+var tick_rate := Protocol.TICK_RATE
+var predict := true
+var interp_delay := 0.12
+var rtt := 0.0
+
+var input_dir := Vector2.ZERO
+var input_run := false
+var _seq := 0
+var _pending_inputs: Array = []    # [seq, dir, run] not yet acknowledged
+var _tick_acc := 0.0
+var _rid := 0
+var _pending_cmds: Dictionary = {} # rid -> InteractionCommand
+var _connect_deadline := 0.0
+var _ping_acc := 0.0
+var server_time := 0.0             # estimate of the server clock
+var _buffers: Dictionary = {}      # remote actor -> Array[[t, pos, facing, moving, running]]
+var _smooth := Vector2.ZERO        # local render correction offset
+var corrections := 0
+var max_correction := 0.0
+var last_result: Dictionary = {}
+
+
+func _enter_tree() -> void:
+	get_tree().set_multiplayer(SceneMultiplayer.new(), get_path())
+	add_child(net)
+
+
+func _set_state(s: String, d := "") -> void:
+	state = s
+	detail = d
+	status_changed.emit(s, d)
+
+
+func connect_to(p_address: String, p_port: int, p_name: String) -> Error:
+	if state == "connecting" or state == "connected":
+		disconnect_from_server()
+	address = p_address
+	port = p_port
+	player_name = p_name
+	enet = ENetMultiplayerPeer.new()
+	var err := enet.create_client(address, port)
+	if err != OK:
+		_set_state("failed", "Could not start a connection (%s)." % error_string(err))
+		return err
+	var smp := multiplayer as SceneMultiplayer
+	smp.allow_object_decoding = false
+	multiplayer.multiplayer_peer = enet
+	if not multiplayer.connected_to_server.is_connected(_on_connected):
+		multiplayer.connected_to_server.connect(_on_connected)
+		multiplayer.connection_failed.connect(_on_connection_failed)
+		multiplayer.server_disconnected.connect(_on_server_disconnected)
+		net.received.connect(_on_message)
+	_connect_deadline = Time.get_ticks_msec() / 1000.0 + Protocol.CONNECT_TIMEOUT
+	_set_state("connecting", "Connecting to %s:%d ..." % [address, port])
+	return OK
+
+
+func disconnect_from_server(reason := "You left the world.") -> void:
+	if enet and state == "connected":
+		net.send(1, Protocol.make(Protocol.BYE))
+		net.flush_all()
+		enet.get_peer(1).peer_disconnect_later()
+		await get_tree().create_timer(0.1).timeout
+	_teardown("disconnected", reason)
+
+
+## Synchronous goodbye for application exit (no awaits possible).
+func goodbye_now() -> void:
+	if enet and state == "connected":
+		net.send(1, Protocol.make(Protocol.BYE))
+		net.flush_all()
+		var p := enet.get_peer(1)
+		if p:
+			p.peer_disconnect_later()   # ENet sends queued packets (the BYE) first
+		for i in 25:
+			enet.poll()
+			if enet.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED:
+				break
+			OS.delay_msec(4)
+		enet.close()
+		state = "disconnected"
+
+
+## Drop the connection without saying goodbye (tests: unexpected disconnect).
+func drop_connection() -> void:
+	_teardown("disconnected", "Connection dropped.")
+
+
+func _teardown(s: String, why: String) -> void:
+	if enet:
+		enet.close()
+	multiplayer.multiplayer_peer = null
+	enet = null
+	_pending_inputs.clear()
+	_pending_cmds.clear()
+	_buffers.clear()
+	_set_state(s, why)
+
+
+func _on_connected() -> void:
+	var p := enet.get_peer(1)
+	if p:
+		p.set_timeout(0, 2000, 6000)
+	net.send(1, Protocol.make(Protocol.HELLO, {"name": player_name}))
+
+
+func _on_connection_failed() -> void:
+	_teardown("failed", "Could not reach %s:%d." % [address, port])
+
+
+func _on_server_disconnected() -> void:
+	_teardown("disconnected", "Lost connection to the server." if detail == "" else detail)
+
+
+# --- authority surface used by GameUI -------------------------------------------
+
+## Send an InteractionCommand. The returned result is provisional (ok = sent);
+## the real outcome arrives as RESULT plus events.
+func submit(cmd: InteractionCommand) -> CommandResult:
+	if state != "connected":
+		var f := CommandResult.failure(cmd, "offline", "Not connected.")
+		event_emitted.emit({"type": "failed", "actor": actor, "code": "offline", "message": f.message, "pos": sim.actor_pos(actor) if sim else Vector2.INF})
+		return f
+	_rid += 1
+	_pending_cmds[_rid] = cmd
+	var wire := cmd.to_wire()
+	net.send(1, Protocol.make(Protocol.CMD, {"rid": _rid, "cmd": {"type": wire["type"], "args": wire["args"]}}))
+	return CommandResult.success(cmd, [])
+
+
+## Raw access for tests: send an arbitrary CMD with an explicit rid.
+func send_raw_command(rid: int, type: String, args: Dictionary) -> void:
+	net.send(1, Protocol.make(Protocol.CMD, {"rid": rid, "cmd": {"type": type, "args": args}}))
+
+
+func next_rid() -> int:
+	_rid += 1
+	return _rid
+
+
+func set_input(dir: Vector2, run: bool) -> void:
+	input_dir = dir.normalized() if dir.length_squared() > 0.0001 else Vector2.ZERO
+	input_run = run
+
+
+# --- incoming -------------------------------------------------------------------
+
+func _on_message(peer: int, msg: Variant, _reliable: bool) -> void:
+	if peer != 1:
+		return
+	var err := Protocol.validate(msg)
+	if err != "":
+		push_warning("dropped invalid server message: %s" % err)
+		return
+	match msg["t"]:
+		Protocol.WELCOME:
+			_on_welcome(msg)
+		Protocol.REJECT:
+			_teardown("failed", "Server refused: %s" % msg["reason"])
+		Protocol.PLAYER_JOIN:
+			_add_player(msg["player"])
+			players_changed.emit()
+		Protocol.PLAYER_LEAVE:
+			if sim and sim.players.has(msg["actor"]) and msg["actor"] != actor:
+				sim.players.erase(msg["actor"])
+				_buffers.erase(msg["actor"])
+				event_emitted.emit({"type": "system", "message": "%s %s." % [_name_of(msg["actor"]), msg["reason"]]})
+				players_changed.emit()
+		Protocol.PLAYER_STATUS:
+			if sim and sim.players.has(msg["actor"]):
+				sim.players[msg["actor"]].linkdead = msg["linkdead"]
+				if msg["linkdead"]:
+					event_emitted.emit({"type": "system", "message": "%s has lost their connection." % _name_of(msg["actor"])})
+		Protocol.ENTITY:
+			if sim and sim.entities.has(msg["id"]):
+				sim.entities[msg["id"]].open = msg["open"]
+		Protocol.ITEMS:
+			if sim:
+				sim.items.replica_apply(msg["up"], msg["rm"])
+		Protocol.EVENT:
+			_on_event(Protocol.event_from_wire(msg["e"]))
+		Protocol.RESULT:
+			_pending_cmds.erase(msg["rid"])
+			last_result = msg
+			command_resolved.emit(msg)
+		Protocol.PONG:
+			rtt = Time.get_ticks_msec() / 1000.0 - float(msg["time"])
+		Protocol.STATE:
+			_on_state(msg)
+
+
+func _name_of(a: String) -> String:
+	return sim.players[a].display_name if sim and sim.players.has(a) else "Someone"
+
+
+func _on_welcome(msg: Dictionary) -> void:
+	session_id = msg["session"]
+	actor = msg["actor"]
+	player_name = msg["name"]
+	tick_rate = msg["tick_rate"]
+	server_time = msg["time"]
+	sim = WorldSim.new()
+	sim.load_map(Protocol.MAP, false, false)
+	sim.local_actor = actor
+	for p in msg["players"]:
+		_add_player(p)
+	for e in msg["entities"]:
+		if sim.entities.has(e[0]):
+			sim.entities[e[0]].open = e[1]
+	_seq = 0
+	_pending_inputs.clear()
+	_set_state("connected", "Connected to %s:%d as %s." % [address, port, player_name])
+	world_ready.emit()
+
+
+func _add_player(p: Array) -> void:
+	if sim == null or sim.players.has(p[0]):
+		return
+	var ps := sim.add_player(p[0], p[1], Vector2(p[2], p[3]))
+	ps.facing = p[4]
+	ps.linkdead = p[5]
+	ps.sync_render()
+
+
+func _on_event(e: Dictionary) -> void:
+	match e["type"]:
+		"container_opened":
+			if not sim.interaction.is_open(actor, e["container"]):
+				sim.interaction.open_containers.get_or_add(actor, []).append(e["container"])
+		"container_closed":
+			sim.interaction.open_containers.get(actor, []).erase(e["container"])
+	event_emitted.emit(e)
+
+
+func _on_state(msg: Dictionary) -> void:
+	if sim == null:
+		return
+	var t: float = msg["time"]
+	if absf(server_time - t) > 0.5:
+		server_time = t
+	else:
+		server_time = lerpf(server_time, t, 0.1)
+	for rec in msg["players"]:
+		if not (rec is Array) or rec.size() != 6:
+			continue
+		var a: String = rec[0]
+		var ps: PlayerState = sim.players.get(a)
+		if ps == null:
+			continue
+		var spos := Vector2(rec[1], rec[2])
+		if a == actor:
+			_reconcile(ps, spos, int(msg["ack"]), int(rec[3]), bool(rec[4]))
+		else:
+			ps.pos = spos   # latest authoritative position (range checks, picking)
+			var buf: Array = _buffers.get_or_add(a, [])
+			buf.append([t, spos, int(rec[3]), bool(rec[4]), bool(rec[5])])
+			while buf.size() > 30:
+				buf.pop_front()
+
+
+## Server-authoritative position + re-apply inputs the server has not seen yet.
+func _reconcile(ps: PlayerState, spos: Vector2, ack: int, facing: int, moving: bool) -> void:
+	while not _pending_inputs.is_empty() and _pending_inputs[0][0] <= ack:
+		_pending_inputs.pop_front()
+	var predicted := ps.pos
+	if not predict:
+		ps.pos = spos
+		ps.facing = facing
+		ps.moving = moving
+		return
+	ps.pos = spos
+	var dt := 1.0 / tick_rate
+	for inp in _pending_inputs:
+		sim.step_actor(actor, dt, inp[1], inp[2])
+	var err := predicted - ps.pos
+	if err.length() > 0.001:
+		corrections += 1
+		max_correction = maxf(max_correction, err.length())
+	if err.length() > 1.5:
+		_smooth = Vector2.ZERO      # far off: snap
+	else:
+		_smooth += err              # small: blend away visually
+
+
+# --- per-frame -------------------------------------------------------------------
+
+func _process(delta: float) -> void:
+	if state == "connecting" and Time.get_ticks_msec() / 1000.0 > _connect_deadline:
+		_teardown("failed", "Connection to %s:%d timed out." % [address, port])
+		return
+	if state != "connected" or sim == null:
+		return
+	server_time += delta
+	var dt := 1.0 / tick_rate
+	_tick_acc += delta
+	var n := 0
+	while _tick_acc >= dt and n < 4:
+		_tick_acc -= dt
+		n += 1
+		_client_tick(dt)
+	if n == 4:
+		_tick_acc = 0.0
+	_ping_acc += delta
+	if _ping_acc > 1.0:
+		_ping_acc = 0.0
+		net.send(1, Protocol.make(Protocol.PING, {"time": Time.get_ticks_msec() / 1000.0}))
+	_update_render(delta)
+	sim.step_sheep(delta)   # ambient, client-side only (no gameplay state)
+
+
+func _client_tick(dt: float) -> void:
+	var me: PlayerState = sim.players.get(actor)
+	if me == null:
+		return
+	_seq += 1
+	_pending_inputs.append([_seq, input_dir, input_run])
+	if _pending_inputs.size() > 120:
+		_pending_inputs.pop_front()
+	if predict:
+		sim.step_actor(actor, dt, input_dir, input_run)
+	var packet := []
+	for k in range(maxi(0, _pending_inputs.size() - Protocol.INPUT_REDUNDANCY), _pending_inputs.size()):
+		var i: Array = _pending_inputs[k]
+		packet.append([i[0], i[1].x, i[1].y, i[2]])
+	net.send(1, Protocol.make(Protocol.INPUT, {"inputs": packet}), false)
+
+
+func _update_render(delta: float) -> void:
+	var rt := server_time - interp_delay
+	for a in sim.players:
+		var ps: PlayerState = sim.players[a]
+		if a == actor:
+			_smooth *= exp(-delta * 12.0)
+			ps.render_pos = ps.pos + _smooth
+			ps.render_facing = ps.facing
+			ps.render_moving = ps.moving
+			ps.render_running = ps.running
+			continue
+		var buf: Array = _buffers.get(a, [])
+		if buf.is_empty():
+			ps.sync_render()
+			continue
+		var i := buf.size() - 1
+		while i > 0 and buf[i][0] > rt:
+			i -= 1
+		var s0: Array = buf[i]
+		var s1: Array = buf[mini(i + 1, buf.size() - 1)]
+		var f := 0.0
+		if s1[0] > s0[0]:
+			f = clampf((rt - s0[0]) / (s1[0] - s0[0]), 0.0, 1.0)
+		ps.render_pos = (s0[1] as Vector2).lerp(s1[1], f)
+		ps.render_facing = s1[2] if f > 0.5 else s0[2]
+		ps.render_moving = s0[3] or s1[3]
+		ps.render_running = s1[4]
+		if ps.render_moving:
+			ps.anim_time += delta * (1.75 if ps.render_running else 1.0)
+
+
+func local_state() -> PlayerState:
+	return sim.players.get(actor) if sim else null

@@ -178,6 +178,89 @@ func journal_has(text: String) -> bool:
 	return false
 
 
+# --- multiplayer roles (two real client processes + a dedicated server) ---------
+
+func _wait_online(players := 2, timeout := 20.0) -> bool:
+	var t0 := Time.get_ticks_msec()
+	while not (main.online and main.sim.players.size() >= players):
+		if Time.get_ticks_msec() - t0 > timeout * 1000.0:
+			return false
+		await frames(1)
+	await frames(10)
+	return true
+
+
+func _other_actor() -> String:
+	for a in main.sim.players:
+		if a != main.sim.local_actor:
+			return a
+	return ""
+
+
+func _run_mp_alice() -> void:
+	check(await _wait_online(), "Alice: online with 2 players in the world")
+	var sim: WorldSim = main.sim
+	var ui: GameUI = main.game_ui
+	var door: Interactable = sim.entities["cottage_door"]
+	await walk_to(door.pos + Vector2(0.95, 0.15))
+	if not door.open:
+		await double_click(entity_screen("cottage_door"))
+	check(await _until(func(): return door.open, 3.0), "Alice: door opened through the server")
+	var sword := 0
+	for uid in sim.items.world_items():
+		sword = uid
+	check(sword != 0, "Alice: sword visible on the ground (replicated)")
+	var spos: Vector2 = sim.items.location(sword)["pos"]
+	await walk_to(spos + Vector2(0.7, -0.3))
+	await double_click(entity_screen("item:%d" % sword))
+	check(await _until(func(): return main.sim.items.location(sword).get("container", "") == main.sim.local_actor + ".backpack", 3.0), "Alice: picked up the sword (server confirmed)")
+	await frames(5)
+	var slot := slot_of(ui.backpack, sword)
+	if slot:
+		await drag(slot_screen(slot), slot_screen(ui.equipment_win.slots[0]))
+	check(await _until(func(): return main.sim.items.equipped(main.sim.local_actor, "main_hand") == sword, 3.0), "Alice: equipped the sword via drag-and-drop")
+	var other := _other_actor()
+	if other != "":
+		await walk_to(main.sim.players[other].pos + Vector2(1.2, -0.8))
+	await seconds(1.5)
+	await shot("mp_alice_view")
+	await seconds(6.0)   # stay so Bob can observe
+	say("\nscenario %s: %d checks, %d failures" % [name_, checks, fails])
+	main.quit_game(1 if fails else 0)
+
+
+func _run_mp_bob() -> void:
+	check(await _wait_online(), "Bob: online with 2 players in the world")
+	var sim: WorldSim = main.sim
+	await walk_to(sim.spawn_point + Vector2(1.5, 1.8))
+	var alice := _other_actor()
+	check(alice != "", "Bob: sees another player (%s)" % (sim.players[alice].display_name if alice != "" else "-"))
+	check(await _until(func(): return main.sim.entities["cottage_door"].open, 20.0), "Bob: sees the door open (opened by Alice)")
+	check(await _until(func(): return main.sim.items.world_items().is_empty(), 20.0), "Bob: sees the sword disappear from the ground")
+	check(await _until(func(): return main.sim.items.equipped(alice, "main_hand") != 0, 20.0), "Bob: sees the sword in Alice's hand")
+	check(await _until(func(): return main.views[0].actor_views.has(alice) and main.views[0].actor_views[alice].overlay.visible, 5.0), "Bob: Alice is drawn with the weapon layer")
+	await seconds(2.5)
+	await shot("mp_bob_sees_alice")
+	main.zoom_i = 4
+	main._apply_view_settings()
+	await shot("mp_bob_sees_alice_zoom3")
+	say("\nscenario %s: %d checks, %d failures" % [name_, checks, fails])
+	main.quit_game(1 if fails else 0)
+
+
+func seconds(s: float) -> void:
+	await get_tree().create_timer(s).timeout
+
+
+func _until(cond: Callable, timeout: float) -> bool:
+	var t0 := Time.get_ticks_msec()
+	while not cond.call():
+		if Time.get_ticks_msec() - t0 > timeout * 1000.0:
+			return false
+		await frames(1)
+	return true
+
+
 func _abort(why: String) -> void:
 	check(false, "ABORT: " + why)
 	say("\nscenario %s: %d checks, %d failures (aborted)" % [name_, checks, fails])
@@ -187,6 +270,12 @@ func _abort(why: String) -> void:
 # --- the run ---------------------------------------------------------------------
 
 func _run() -> void:
+	if name_ == "mp_alice":
+		await _run_mp_alice()
+		return
+	if name_ == "mp_bob":
+		await _run_mp_bob()
+		return
 	await frames(20)
 	var sim: WorldSim = main.sim
 	var ui: GameUI = main.game_ui

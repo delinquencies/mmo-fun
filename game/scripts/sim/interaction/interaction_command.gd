@@ -10,6 +10,12 @@ extends RefCounted
 ##   "transfer"        {uid: int, from: Location, to: Location, qty: int (0 = all)}
 ##   "use_item"        {uid: int, from: Location}            double-click: equip / unequip / pick up
 ##   "close_container" {container: String}
+##   "pick_up"         {uid: int}                            ground -> own backpack
+##   "drop"            {uid: int, from: Location, pos: [x, y]}
+##   "equip"           {uid: int, from: Location}            -> the item's equip slot
+##   "unequip"         {slot: String}                        -> own backpack
+##   "set_door"        {entity: String, open: bool}          explicit open / close (idempotent)
+## Movement is not a command: it is a separate input stream (see net/protocol.gd).
 
 static var _seq := 0
 

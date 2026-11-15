@@ -9,7 +9,8 @@ var camera := Camera2D.new()
 var entities := Node2D.new()      # y-sorted props + actors
 var shadows := CanvasGroup.new()  # merged so overlapping shadows don't double-darken
 var overlay: DebugOverlay
-var player: ActorSprite
+var player: ActorSprite                 # the local character (camera target)
+var actor_views: Dictionary = {}        # actor id -> ActorSprite (every character)
 var sheep_views: Array[ActorSprite] = []
 var buildings: Array = []         # [BuildingSprite, world pos, footprint]
 var show_energy := false          # E: preview the reusable blade-energy effect on a held weapon
@@ -78,12 +79,7 @@ func setup(world_sim: WorldSim, asset_set: AssetSet) -> void:
 		shadows.add_child(sv.shadow)
 		sheep_views.append(sv)
 
-	player = ActorSprite.new()
-	player.name = "Player"
-	player.setup(aset, "player", true)
-	entities.add_child(player)
-	shadows.add_child(player.shadow)
-	shadows.add_child(player.overlay_shadow)
+	_sync_actors()
 	drop_marker.tile_w = tw
 	drop_marker.z_index = -5
 	add_child(drop_marker)
@@ -182,6 +178,27 @@ func _sync_entities(dt: float) -> void:
 		v["frame"] = f
 
 
+## Create / remove character sprites to match the sim's player list.
+func _sync_actors() -> void:
+	for a in sim.players:
+		if not actor_views.has(a):
+			var av := ActorSprite.new()
+			av.name = "Actor_" + a
+			av.setup(aset, "player", a == sim.local_actor)
+			entities.add_child(av)
+			shadows.add_child(av.shadow)
+			shadows.add_child(av.overlay_shadow)
+			actor_views[a] = av
+	for a in actor_views.keys():
+		if not sim.players.has(a):
+			var av: ActorSprite = actor_views[a]
+			av.shadow.queue_free()
+			av.overlay_shadow.queue_free()
+			av.queue_free()
+			actor_views.erase(a)
+	player = actor_views.get(sim.local_actor)
+
+
 func node_for(id: String) -> Node2D:
 	if id.begins_with("item:"):
 		var uid := int(id.substr(5))
@@ -247,17 +264,23 @@ func sync(_dt: float) -> void:
 	_sync_ground_items()
 	_sync_entities(_dt)
 	_apply_highlights(Time.get_ticks_msec() / 1000.0)
-	var weapon := sim.items.equipped(WorldSim.PLAYER_ID, "main_hand")
-	var layer := sim.items.def(sim.items.item(weapon).def_id).paperdoll_layer if weapon else ""
-	player.set_overlay(layer)
-	player.position = Iso.to_screen(sim.player_pos, tw)
-	var anim := "walk" if sim.player_moving else "idle"
-	var f := int(floor(sim.player_anim_time * player.fps(anim)))
-	player.show_frame(anim, f, sim.player_facing)
-	if player.energy:
-		var on := show_energy and layer != ""
-		player.energy.enabled = on
-		player.energy.visible = on
+	_sync_actors()
+	for a in actor_views:
+		var av: ActorSprite = actor_views[a]
+		var ps: PlayerState = sim.players[a]
+		var weapon := sim.items.equipped(a, "main_hand")
+		var it := sim.items.item(weapon) if weapon else null
+		var layer := sim.items.def(it.def_id).paperdoll_layer if it else ""
+		av.set_overlay(layer)
+		av.position = Iso.to_screen(ps.render_pos, tw)
+		var anim := "walk" if ps.render_moving else "idle"
+		var f := int(floor(ps.anim_time * av.fps(anim)))
+		av.show_frame(anim, f, ps.render_facing)
+		av.modulate = Color(0.65, 0.65, 0.7, 0.6) if ps.linkdead else Color.WHITE
+		if av.energy:
+			var on := show_energy and layer != ""
+			av.energy.enabled = on
+			av.energy.visible = on
 	for k in sheep_views.size():
 		var s: Dictionary = sim.sheep[k]
 		var sv := sheep_views[k]
@@ -271,7 +294,8 @@ func sync(_dt: float) -> void:
 		else:
 			sv.show_frame("stand", 0, s["facing"])
 	_update_occlusion_fade(_dt)
-	camera.position = player.position.round()
+	if player:
+		camera.position = player.position.round()
 	if overlay.visible:
 		overlay.queue_redraw()
 
@@ -282,6 +306,8 @@ func mouse_world() -> Vector2:
 
 ## Fade a building while it hides the player (readability; UO-style roofs are future work).
 func _update_occlusion_fade(dt: float) -> void:
+	if player == null:
+		return
 	for b in buildings:
 		var node: BuildingSprite = b["node"]
 		var rect: Rect2 = b["rect"]

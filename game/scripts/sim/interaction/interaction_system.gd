@@ -33,8 +33,16 @@ func is_open(actor: String, cid: String) -> bool:
 	return open_containers.get(actor, []).has(cid)
 
 
+const COMMAND_TYPES: PackedStringArray = ["use", "transfer", "use_item", "close_container",
+	"pick_up", "drop", "equip", "unequip", "set_door"]
+
+
 func submit(cmd: InteractionCommand) -> CommandResult:
 	var r: CommandResult
+	if not sim.players.has(cmd.actor):
+		r = CommandResult.failure(cmd, "no_actor", "")
+		command_resolved.emit(r)
+		return r
 	match cmd.type:
 		"use":
 			r = _use(cmd)
@@ -44,6 +52,45 @@ func submit(cmd: InteractionCommand) -> CommandResult:
 			r = _use_item(cmd)
 		"close_container":
 			r = _close_container(cmd.actor, cmd.args.get("container", ""), cmd)
+		"pick_up":
+			var uid := int(cmd.args.get("uid", 0))
+			var loc := store.location(uid)
+			if loc.get("kind", "") != "world":
+				r = CommandResult.failure(cmd, "stale", ItemTransferService.MESSAGES["stale"])
+			else:
+				r = _transfer(cmd, uid, loc, ItemLocation.container(backpack_id(cmd.actor)), 0)
+		"drop":
+			var pos: Variant = cmd.args.get("pos")
+			if pos is Array and pos.size() == 2:
+				pos = Vector2(float(pos[0]), float(pos[1]))
+			if not (pos is Vector2):
+				r = CommandResult.failure(cmd, "invalid_dest", ItemTransferService.MESSAGES["invalid_dest"])
+			else:
+				r = _transfer(cmd, int(cmd.args.get("uid", 0)), cmd.args.get("from", {}), ItemLocation.world(pos), 0)
+		"equip":
+			var uid := int(cmd.args.get("uid", 0))
+			var it := store.item(uid)
+			var slot := store.def(it.def_id).equip_slot if it else ""
+			if slot == "":
+				r = CommandResult.failure(cmd, "cannot_equip", ItemTransferService.MESSAGES["cannot_equip"])
+			else:
+				r = _transfer(cmd, uid, cmd.args.get("from", {}), ItemLocation.equipment(cmd.actor, slot), 0)
+		"unequip":
+			var slot: String = str(cmd.args.get("slot", "main_hand"))
+			var uid := store.equipped(cmd.actor, slot)
+			if uid == 0:
+				r = CommandResult.failure(cmd, "stale", "Nothing is equipped there.")
+			else:
+				r = _transfer(cmd, uid, ItemLocation.equipment(cmd.actor, slot), ItemLocation.container(backpack_id(cmd.actor)), 0)
+		"set_door":
+			var ent: Interactable = sim.entities.get(str(cmd.args.get("entity", "")))
+			if ent == null or ent.kind != "door":
+				r = CommandResult.failure(cmd, "no_target", "There is nothing there.")
+			elif ent.open == bool(cmd.args.get("open", false)):
+				r = CommandResult.failure(cmd, "no_change", "")
+			else:
+				r = _use(InteractionCommand.make("use", cmd.actor, {"entity": ent.id}))
+				r.command = cmd
 		_:
 			r = CommandResult.failure(cmd, "unknown", "Unknown command.")
 	if log_commands:
@@ -67,6 +114,14 @@ func update(_dt: float) -> void:
 				var r := _close_container(actor, cid, null)
 				for e in r.events:
 					event_emitted.emit(e)
+
+
+## Close every container an actor has open (disconnects, removal).
+func close_all_for(actor: String) -> void:
+	for cid in open_containers.get(actor, []).duplicate():
+		var r := _close_container(actor, cid, null)
+		for e in r.events:
+			event_emitted.emit(e)
 
 
 # --- access rules shared by every transfer ---------------------------------
@@ -142,8 +197,9 @@ func _use(cmd: InteractionCommand) -> CommandResult:
 		"door":
 			if ent.open:
 				for r in ent.closed_rects():
-					if _circle_rect(sim.actor_pos(cmd.actor), WorldSim.PLAYER_RADIUS, r):
-						return CommandResult.failure(cmd, "obstructed", "Something is in the way.")
+					for a in sim.players:
+						if _circle_rect(sim.actor_pos(a), WorldSim.PLAYER_RADIUS, r):
+							return CommandResult.failure(cmd, "obstructed", "Something is in the way.")
 			ent.open = not ent.open
 			events.append({"type": "door_changed", "id": ent.id, "open": ent.open})
 			events.append({"type": "sound", "name": ent.def["sounds"]["open" if ent.open else "close"], "pos": ent.pos})

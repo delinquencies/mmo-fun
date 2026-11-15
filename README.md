@@ -20,6 +20,16 @@ gameplay resolution before any MMO infrastructure is built.
 | `docs/PROTOTYPE_STATUS.md` | Slice 001 report: calibration findings and open art decisions |
 | `game/tests/run_tests.gd` | Headless tests for the item/interaction authority |
 
+## Multiplayer (Slice 003)
+
+```bash
+tools/net/run_local_mp.sh                      # dedicated server + Alice + Bob on this computer
+```
+
+Details, LAN play and the test procedure are in
+[docs/MULTIPLAYER_TESTING.md](docs/MULTIPLAYER_TESTING.md). The protocol and
+authority model are in [docs/NETWORK_PROTOCOL.md](docs/NETWORK_PROTOCOL.md).
+
 ## Run it
 
 1. Install **Godot 4.3+** (standard build, not .NET).
@@ -44,6 +54,7 @@ The forged PNGs are committed, so you don't need Python to play.
 | F5 | Hot-reload forged assets from disk (after re-running the forge) |
 | F12 | Screenshot to `user://` |
 | H / F1 | Show or hide the help panel |
+| F9 | Realm connection window (connect or leave a server) |
 | Left click | Select a world object and show its name |
 | Double-click | Use: open or close doors, open chests, pick up ground items; in a slot, equip or unequip |
 | Drag | Move items between ground, backpack, chest and equipment; Shift-drag moves one item from a stack |
@@ -70,6 +81,8 @@ Then press F5 in the running game to reload.
 ```bash
 # item/interaction authority (no window needed)
 godot --headless --path game --script res://tests/run_tests.gd
+# multiplayer: real ENet server + two clients in one process (no window needed)
+godot --headless --path game --script res://tests/mp_tests.gd
 # full acceptance run through real mouse/keyboard input + screenshots
 xvfb-run godot --rendering-driver opengl3 --path game -- --scenario=acceptance --shot_dir=/tmp/shots [--set=t96]
 ```

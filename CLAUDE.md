@@ -18,3 +18,11 @@
   or `Interactable` state directly.
 - Run `godot --headless --path game --script res://tests/run_tests.gd` after
   touching anything in `game/scripts/sim/`.
+- Multiplayer (Slice 003): the server's `WorldSim` is the only authority
+  online. Clients send movement *intent* and `InteractionCommand`s only;
+  replicas change only via server messages, plus movement prediction that the
+  server corrects. Protocol: `game/scripts/net/protocol.gd` and
+  `docs/NETWORK_PROTOCOL.md`; keep the two in sync and bump
+  `Protocol.VERSION` on incompatible changes.
+- Run `godot --headless --path game --script res://tests/mp_tests.gd` after
+  touching `game/scripts/net/` or anything the server uses.

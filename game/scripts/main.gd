@@ -6,7 +6,13 @@ const SETS: PackedStringArray = ["t64", "t96"]
 const ZOOMS: PackedFloat32Array = [0.5, 1.0, 1.5, 2.0, 3.0, 4.0]
 const MAP := "res://data/maps/homestead.json"
 
-var sim := WorldSim.new()
+var sim := WorldSim.new()            # the world being shown: offline sim or the network replica
+var offline_sim: WorldSim
+var net := NetClient.new()
+var online := false
+var connect_win := ConnectWindow.new()
+var name_labels: Dictionary = {}     # actor -> Label
+var _authority: Object
 var asset_sets: Dictionary = {}
 var active := 0
 var compare := false
@@ -50,6 +56,15 @@ func _ready() -> void:
 		if s:
 			asset_sets[id] = s
 	sim.load_map(MAP)
+	offline_sim = sim
+	net.name = "NetClient"
+	add_child(net)
+	net.status_changed.connect(_on_net_status)
+	net.world_ready.connect(_on_net_world_ready)
+	if cli.has("lag") or cli.has("loss") or cli.has("jitter"):
+		net.net.configure(float(cli.get("lag", 0)), float(cli.get("jitter", 0)), float(cli.get("loss", 0)))
+	if cli.has("no_predict"):
+		net.predict = false
 	if cli.has("set"):
 		active = maxi(0, SETS.find(cli["set"]))
 	if cli.has("zoom"):
@@ -81,12 +96,21 @@ func _ready() -> void:
 	journal.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	journal.add_theme_constant_override("separation", 0)
 	add_child(journal)
-	game_ui.setup(sim, audio)
-	game_ui.feedback.connect(func(t, p, c): float_text(t, p, 86.0, c))
-	add_child(game_ui)
-	sim.interaction.event_emitted.connect(_journal_event)
 	_setup_cursors()
-	_rebuild_views()
+	_switch_world(sim, sim.interaction)
+	connect_win.connect_requested.connect(func(a, p, n): net.connect_to(a, p, n))
+	connect_win.disconnect_requested.connect(func(): net.disconnect_from_server())
+	add_child(connect_win)
+	connect_win.visible = false
+	_place_connect_window.call_deferred()
+	if cli.has("connect"):
+		var hp: PackedStringArray = String(cli["connect"]).split(":")
+		connect_win.address_edit.text = hp[0]
+		if hp.size() > 1:
+			connect_win.port_edit.text = hp[1]
+		if cli.has("name"):
+			connect_win.name_edit.text = String(cli["name"])
+		connect_win._on_connect.call_deferred()
 	if cli.has("ui_scale"):
 		set_ui_scale(float(cli["ui_scale"]))
 	if cli.has("scenario"):
@@ -94,6 +118,65 @@ func _ready() -> void:
 		scenario.main = self
 		scenario.name_ = String(cli["scenario"])
 		add_child(scenario)
+
+
+## Show a world: the offline sim (authority = its InteractionSystem) or the
+## network replica (authority = NetClient). Views and UI are rebuilt for it.
+func _switch_world(new_sim: WorldSim, authority: Object) -> void:
+	if _authority and _authority.event_emitted.is_connected(_journal_event):
+		_authority.event_emitted.disconnect(_journal_event)
+	sim = new_sim
+	_authority = authority
+	if is_instance_valid(game_ui) and game_ui.is_inside_tree():
+		remove_child(game_ui)
+		game_ui.queue_free()
+	game_ui = GameUI.new()
+	game_ui.setup(sim, audio, authority)
+	game_ui.feedback.connect(func(t, p, c): float_text(t, p, 86.0, c))
+	add_child(game_ui)
+	authority.event_emitted.connect(_journal_event)
+	for l in name_labels.values():
+		l.queue_free()
+	name_labels.clear()
+	hovered_id = ""
+	_rebuild_views()
+	set_ui_scale(UI_SCALES[ui_scale_i])
+	if connect_win.is_inside_tree():
+		move_child(connect_win, -1)
+
+
+func _place_connect_window() -> void:
+	connect_win.fit()
+	connect_win.position = Vector2(size.x * 0.5 - connect_win.size.x * 0.5, 90)
+
+
+func _on_net_status(state: String, detail: String) -> void:
+	connect_win.set_state(state, detail)
+	_journal(detail, UISkin.BAD if state == "failed" else UISkin.GOLD)
+	if (state == "disconnected" or state == "failed") and online:
+		online = false
+		_switch_world(offline_sim, offline_sim.interaction)
+		connect_win.visible = true
+		move_child(connect_win, -1)
+
+
+func _on_net_world_ready() -> void:
+	online = true
+	_switch_world(net.sim, net)
+	connect_win.visible = false
+
+
+## Say goodbye while the scene tree is still intact (window close / scripted quit),
+## so the server removes the character at once instead of treating it as a crash.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		net.goodbye_now()
+
+
+func quit_game(code := 0) -> void:
+	net.goodbye_now()
+	await get_tree().process_frame
+	get_tree().quit(code)
 
 
 func _parse_cli() -> void:
@@ -128,7 +211,7 @@ func _build_hud() -> void:
 		"Mouse wheel / + -  zoom      G  tile grid      K  collision + sort anchors",
 		"E  blade-energy preview      F5  hot-reload forged assets      F12  screenshot      H  hide help",
 		"Left click  select / name      Double-click  use (door, chest, pick up, equip)      Drag  move items",
-		"I  backpack      P  equipment      Shift+drag  move one from a stack      F2  UI scale",
+		"I  backpack      P  equipment      Shift+drag  move one from a stack      F2  UI scale      F9  realm connection",
 	])
 	help_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 
@@ -192,7 +275,14 @@ func _apply_view_settings() -> void:
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
+	if get_viewport().gui_get_focus_owner() is LineEdit:
+		return   # typing into the connection panel
 	match event.physical_keycode:
+		KEY_F9:
+			connect_win.visible = not connect_win.visible
+			if connect_win.visible:
+				move_child(connect_win, -1)
+				connect_win.pop_in()
 		KEY_TAB:
 			active = (active + 1) % SETS.size()
 			_rebuild_views()
@@ -283,13 +373,19 @@ func _process(dt: float) -> void:
 	if cli_walk_dir != Vector2.ZERO:
 		dir = cli_walk_dir
 	var run := Input.is_physical_key_pressed(KEY_SHIFT)
-	sim.step_player(dt, dir, run)
-	sim.step_sheep(dt)
-	sim.interaction.update(dt)
+	if get_viewport().gui_get_focus_owner() is LineEdit:
+		dir = Vector2.ZERO
+	if online:
+		net.set_input(dir, run)      # intent only; the server moves the character
+	else:
+		sim.step_player(dt, dir, run)
+		sim.step_sheep(dt)
+		sim.interaction.update(dt)
 	audio.listener_pos = sim.player_pos
 	for v in views:
 		v.sync(dt)
 	_update_floaters(dt)
+	_update_name_labels()
 	journal.position = Vector2(12, size.y - help_panel.size.y - journal.size.y - 18) if help_panel.visible else Vector2(12, size.y - journal.size.y - 12)
 	_update_hud()
 	help_panel.position = Vector2(10, size.y - help_panel.size.y - 10)
@@ -299,6 +395,30 @@ func _process(dt: float) -> void:
 		get_tree().quit()
 
 
+func _update_name_labels() -> void:
+	for a in sim.players:
+		var ps: PlayerState = sim.players[a]
+		var l: Label = name_labels.get(a)
+		if l == null:
+			l = UISkin.label(ps.display_name, UISkin.GOLD if a == sim.local_actor else UISkin.TEXT, 13)
+			float_layer.add_child(l)
+			name_labels[a] = l
+		l.text = ps.display_name + ("  (link lost)" if ps.linkdead else "")
+		l.modulate.a = 0.55 if ps.linkdead else 1.0
+		l.position = (world_to_screen(ps.render_pos, 86.0) - Vector2(l.size.x * 0.5, l.size.y)).round()
+	for a in name_labels.keys():
+		if not sim.players.has(a):
+			name_labels[a].queue_free()
+			name_labels.erase(a)
+
+
+func _net_line() -> String:
+	if not online:
+		return "Offline single-player   (F9: connect to a server)"
+	return "Online as %s  -  %s:%d  -  %d in world  -  rtt %d ms" % [net.player_name, net.address, net.port,
+		sim.players.size(), int(net.rtt * 1000.0)]
+
+
 func _update_hud() -> void:
 	var a: AssetSet = asset_sets.get(SETS[active])
 	var mode := "side-by-side (%s)" % ("matched world scale" if matched_scale else "native pixels") if compare else a.label()
@@ -306,6 +426,7 @@ func _update_hud() -> void:
 		"compare" if compare else a.id, mode, ZOOMS[zoom_i], Engine.get_frames_per_second(),
 		sim.player_pos.x, sim.player_pos.y, floori(sim.player_pos.x), floori(sim.player_pos.y),
 		Iso.DIRECTIONS[sim.player_facing], "  (running)" if sim.player_running and sim.player_moving else ""]
+	hud.text += "\n" + _net_line()
 
 
 func _screenshot(path: String) -> void:
@@ -409,7 +530,7 @@ func select_entity(id: String) -> void:
 
 
 func use_entity(id: String) -> void:
-	game_ui.submit(InteractionCommand.use_entity(WorldSim.PLAYER_ID, id))
+	game_ui.submit(InteractionCommand.use_entity(sim.local_actor, id))
 
 
 func start_world_drag(id: String, src: Control) -> void:
@@ -446,7 +567,10 @@ func drop_on_world(screen: Vector2, data: Dictionary) -> void:
 # --- feedback text ------------------------------------------------------------
 
 func float_text(text: String, world_pos: Vector2, height_px: float, color: Color) -> void:
-	if text == "" or world_pos == Vector2.INF:
+	if text == "":
+		return
+	if world_pos == Vector2.INF:
+		_journal(text, color)
 		return
 	var l := UISkin.label(text, color, 14)
 	float_layer.add_child(l)

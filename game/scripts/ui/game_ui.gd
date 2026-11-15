@@ -8,7 +8,8 @@ signal feedback(text: String, world_pos: Vector2, color: Color)
 
 var sim: WorldSim
 var store: ItemStore
-var interaction: InteractionSystem
+var interaction: InteractionSystem   # local rules: drop previews / range only
+var authority: Object                # decides outcomes: InteractionSystem offline, NetClient online
 var audio: AudioEvents
 var actor := WorldSim.PLAYER_ID
 
@@ -20,15 +21,17 @@ var dragging_uid := 0
 var ui_scale := 1.0
 
 
-func setup(p_sim: WorldSim, p_audio: AudioEvents) -> void:
+func setup(p_sim: WorldSim, p_audio: AudioEvents, p_authority: Object = null) -> void:
 	sim = p_sim
 	store = sim.items
 	interaction = sim.interaction
+	authority = p_authority if p_authority else sim.interaction
+	actor = sim.local_actor
 	audio = p_audio
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	store.changed.connect(_refresh_all)
-	interaction.event_emitted.connect(_on_event)
+	authority.event_emitted.connect(_on_event)
 	backpack = ContainerWindow.new(self, interaction.backpack_id(actor))
 	backpack.close_requested.connect(func(): toggle_backpack(false))
 	equipment_win = EquipmentWindow.new(self, actor)
@@ -81,7 +84,7 @@ func _toggle(w: GameWindow, show: Variant) -> void:
 # --- commands ---------------------------------------------------------------
 
 func submit(cmd: InteractionCommand) -> CommandResult:
-	return interaction.submit(cmd)
+	return authority.submit(cmd)
 
 
 func would_accept(data: Dictionary, to: Dictionary) -> bool:
@@ -90,6 +93,9 @@ func would_accept(data: Dictionary, to: Dictionary) -> bool:
 
 func transfer(data: Dictionary, to: Dictionary) -> bool:
 	return submit(InteractionCommand.transfer(actor, int(data["uid"]), data["from"], to, int(data.get("qty", 0)))).ok
+
+
+var last_drop_slot: ItemSlot
 
 
 func use_item(uid: int) -> void:
@@ -130,9 +136,13 @@ func _on_event(e: Dictionary) -> void:
 				w.queue_free()
 		"sound":
 			audio.play(e["name"], e.get("pos"))
+		"system":
+			feedback.emit(e["message"], Vector2.INF, UISkin.GOLD)
 		"failed":
 			if e["actor"] == actor:
 				audio.play("invalid")
+				if last_drop_slot and is_instance_valid(last_drop_slot):
+					last_drop_slot.flash = 1.0
 				if e["message"] != "":
 					feedback.emit(e["message"], e["pos"], UISkin.BAD)
 

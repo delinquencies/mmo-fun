@@ -34,10 +34,10 @@ Nothing in `ui/` or `view/` writes to `ItemStore`, `Interactable` or
 `WorldSim` item state. The UI's live drop preview (green or red slot frames,
 the ground marker) calls `plan()`, which validates without mutating.
 
-**Path to multiplayer:** run `InteractionSystem`, `ItemStore` and
-`ItemTransferService` on the server. Clients send `cmd.to_wire()`, and the
-server broadcasts events. `test_wire_roundtrip` checks that commands survive
-JSON serialisation.
+**Multiplayer (Slice 003, done):** `InteractionSystem`, `ItemStore` and
+`ItemTransferService` run unchanged on the dedicated server. Clients send
+`cmd.to_wire()` and get results, events and item diffs back. See
+`docs/NETWORK_PROTOCOL.md`.
 
 ## Commands (`InteractionCommand`)
 
@@ -47,6 +47,11 @@ JSON serialisation.
 | `transfer` | `uid`, `from`, `to`, `qty` (0 = whole stack) | Any item move: ground ↔ backpack ↔ chest ↔ equipment. |
 | `use_item` | `uid`, `from` | Double-click. Equippable in a container: equip. Equipped: unequip to the backpack. Ground or chest item: move to the backpack. |
 | `close_container` | `container` | Close a chest window. The lid closes when nobody has it open. |
+| `pick_up` | `uid` | Ground item into the actor's backpack (Slice 003) |
+| `drop` | `uid`, `from`, `pos` | Item onto the ground at `pos` (Slice 003) |
+| `equip` | `uid`, `from` | Into the item's equip slot (Slice 003) |
+| `unequip` | `slot` | Equipped item into the backpack (Slice 003) |
+| `set_door` | `entity`, `open` | Explicit, idempotent door state (Slice 003) |
 
 Each command carries `seq`, `type`, `actor` and `args`. `submit()` returns a
 `CommandResult` with `ok`, `code`, `message` and `events`. When `ok` is false,

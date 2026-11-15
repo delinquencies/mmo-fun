@@ -21,12 +21,29 @@ var props: Array = []                        # {type, pos: Vector2}
 var obstacles: Array = []                    # {circle: Vector3(x,y,r)} | {rect: Rect2}
 var prop_defs: Dictionary
 
-# player
-var player_pos := Vector2.ZERO
-var player_facing := 0
-var player_moving := false
-var player_running := false
-var player_anim_time := 0.0
+# players (Slice 003: any number of actors). `local_actor` is the character
+# this process controls / follows; the player_* properties alias it so
+# single-player code and tests keep working unchanged.
+var players: Dictionary = {}          # actor id -> PlayerState
+var local_actor := "player"
+var spawn_point := Vector2.ZERO
+
+var player_pos: Vector2:
+	get: return players[local_actor].pos if players.has(local_actor) else Vector2.ZERO
+	set(v):
+		if players.has(local_actor):
+			players[local_actor].pos = v
+var player_facing: int:
+	get: return players[local_actor].facing if players.has(local_actor) else 0
+	set(v):
+		if players.has(local_actor):
+			players[local_actor].facing = v
+var player_moving: bool:
+	get: return players[local_actor].moving if players.has(local_actor) else false
+var player_running: bool:
+	get: return players[local_actor].running if players.has(local_actor) else false
+var player_anim_time: float:
+	get: return players[local_actor].anim_time if players.has(local_actor) else 0.0
 
 # interaction / items (Slice 002)
 const PLAYER_ID := "player"
@@ -41,7 +58,8 @@ var sheep_pen := Rect2()
 var _rng := RandomNumberGenerator.new()
 
 
-func load_map(path: String) -> void:
+## spawn_items = false for network replicas: item state comes only from the server.
+func load_map(path: String, spawn_local := true, spawn_items := true) -> void:
 	map_data = JSON.parse_string(FileAccess.get_file_as_string(path))
 	prop_defs = JSON.parse_string(FileAccess.get_file_as_string("res://data/props.json"))
 	size = Vector2i(int(map_data["size"][0]), int(map_data["size"][1]))
@@ -62,10 +80,11 @@ func load_map(path: String) -> void:
 			elif shape.has("rect"):
 				var r: Array = shape["rect"]
 				obstacles.append({"rect": Rect2(pos.x + r[0], pos.y + r[1], r[2] - r[0], r[3] - r[1])})
-	_load_interactables()
+	_load_interactables(spawn_items)
 	var ps: Array = map_data["player_start"]
-	player_pos = Vector2(ps[0], ps[1])
-	player_facing = 0
+	spawn_point = Vector2(ps[0], ps[1])
+	if spawn_local:
+		add_player(PLAYER_ID, "Adventurer", spawn_point)
 	var pen: Array = map_data["sheep_pen"]
 	sheep_pen = Rect2(pen[0], pen[1], pen[2] - pen[0], pen[3] - pen[1])
 	_rng.seed = 1234
@@ -74,11 +93,9 @@ func load_map(path: String) -> void:
 			"state": "graze", "timer": _rng.randf_range(1.0, 4.0), "target": Vector2.ZERO, "t": 0.0})
 
 
-func _load_interactables() -> void:
+func _load_interactables(spawn_items := true) -> void:
 	items.load_definitions("res://data/items.json")
 	interactable_defs = JSON.parse_string(FileAccess.get_file_as_string("res://data/interactables.json"))
-	items.add_container(ContainerComponent.new("%s.backpack" % PLAYER_ID, "Backpack", PLAYER_ID, 15, 5))
-	items.add_equipment(EquipmentComponent.new(PLAYER_ID))
 	for e in map_data.get("entities", []):
 		var ent := Interactable.new()
 		ent.id = e["id"]
@@ -90,16 +107,69 @@ func _load_interactables() -> void:
 			ent.container_id = ent.id + ".contents"
 			items.add_container(ContainerComponent.new(ent.container_id, ent.display_name(), ent.id,
 				int(ent.def.get("capacity", 8)), int(ent.def.get("columns", 4))))
-			for c in e.get("contents", []):
+			for c in (e.get("contents", []) if spawn_items else []):
 				items.spawn(c[0], int(c[1]), ItemLocation.container(ent.container_id))
 		entities[ent.id] = ent
-	for g in map_data.get("ground_items", []):
+	for g in (map_data.get("ground_items", []) if spawn_items else []):
 		items.spawn(g["def"], int(g.get("qty", 1)), ItemLocation.world(Vector2(g["x"], g["y"])))
 	interaction = InteractionSystem.new(self)
 
 
+## Create a character with its backpack and equipment.
+func add_player(actor: String, display_name: String, pos: Vector2) -> PlayerState:
+	var ps := PlayerState.new(actor, display_name, pos)
+	players[actor] = ps
+	if not items.containers.has("%s.backpack" % actor):
+		items.add_container(ContainerComponent.new("%s.backpack" % actor, "Backpack", actor, 15, 5))
+	if not items.equipment.has(actor):
+		items.add_equipment(EquipmentComponent.new(actor))
+	return ps
+
+
+## Remove a character. Anything it carried is placed on the ground at its feet
+## so no item is ever lost with a session (temporary sessions own nothing
+## permanently until persistence exists).
+func remove_player(actor: String) -> Array[int]:
+	var dropped: Array[int] = []
+	var ps: PlayerState = players.get(actor)
+	if ps == null:
+		return dropped
+	var spots := 0
+	for uid in items.items.keys():
+		var loc := items.location(uid)
+		var mine: bool = (loc.get("kind") == "container" and loc["container"] == "%s.backpack" % actor) \
+			or (loc.get("kind") == "equipment" and loc["owner"] == actor)
+		if mine:
+			var a := spots * 2.4
+			var r := 0.25 + 0.12 * spots
+			items._vacate(uid)
+			items._place(uid, ItemLocation.world(_free_drop_spot(ps.pos + Vector2(cos(a), sin(a)) * r)))
+			dropped.append(uid)
+			spots += 1
+	items.containers.erase("%s.backpack" % actor)
+	items.equipment.erase(actor)
+	if interaction:
+		interaction.open_containers.erase(actor)
+	players.erase(actor)
+	if not dropped.is_empty():
+		items.revision += 1
+		items.changed.emit()
+	return dropped
+
+
+func _free_drop_spot(p: Vector2) -> Vector2:
+	if not is_blocked(p, 0.1):
+		return p
+	for k in 16:
+		var q := p + Vector2(cos(k * 0.8), sin(k * 0.8)) * (0.3 + 0.1 * k)
+		if not is_blocked(q, 0.1):
+			return q
+	return p
+
+
 func actor_pos(actor: String) -> Vector2:
-	return player_pos if actor == PLAYER_ID else Vector2.INF
+	var ps: PlayerState = players.get(actor)
+	return ps.pos if ps else Vector2.INF
 
 
 func corner(i: int, j: int) -> int:
@@ -159,17 +229,29 @@ func try_move(p: Vector2, delta: Vector2, radius: float) -> Vector2:
 
 ## move_dir: world-space direction (zero = stand still). facing_hint >= 0 forces a facing.
 func step_player(dt: float, move_dir: Vector2, run: bool, facing_hint: int = -1) -> void:
-	player_running = run
+	step_actor(local_actor, dt, move_dir, run, facing_hint)
+	if players.has(local_actor):
+		players[local_actor].sync_render()
+
+
+## The single movement rule, shared by offline play, the server simulation and
+## client-side prediction. Speed comes from the rules, never from the caller:
+## move_dir only contributes a direction.
+func step_actor(actor: String, dt: float, move_dir: Vector2, run: bool, facing_hint: int = -1) -> void:
+	var ps: PlayerState = players.get(actor)
+	if ps == null:
+		return
+	ps.running = run
 	if move_dir.length_squared() > 0.0001:
 		var d := move_dir.normalized()
-		player_facing = facing_hint if facing_hint >= 0 else Iso.dir_index(d)
+		ps.facing = facing_hint if facing_hint >= 0 else Iso.dir_index(d)
 		var speed := RUN_SPEED if run else WALK_SPEED
-		var np := try_move(player_pos, d * speed * dt, PLAYER_RADIUS)
-		player_moving = np.distance_squared_to(player_pos) > 0.0
-		player_pos = np
+		var np := try_move(ps.pos, d * speed * dt, PLAYER_RADIUS)
+		ps.moving = np.distance_squared_to(ps.pos) > 0.0
+		ps.pos = np
 	else:
-		player_moving = false
-	player_anim_time += dt * ((RUN_SPEED / WALK_SPEED) if (player_moving and run) else 1.0)
+		ps.moving = false
+	ps.anim_time += dt * ((RUN_SPEED / WALK_SPEED) if (ps.moving and run) else 1.0)
 
 
 func step_sheep(dt: float) -> void:
