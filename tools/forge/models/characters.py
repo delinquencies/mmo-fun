@@ -68,51 +68,59 @@ def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0, weapon="iron_sword", swing
     TUNIC_, LEATHER_, PANTS_, SKIN_ = (BANDIT["cloth"], BANDIT["leather"], BANDIT["pants"], BANDIT["skin"]) if bandit \
         else (TUNIC, LEATHER, PANTS, SKIN)
     bob = -0.03 * np.cos(2 * phase) * walk + 0.008 * breathe
-    hip_z = 0.79 + bob
+    hip_z = 0.86 + bob        # long-legged: legs are half the figure's height
     anchors = {}
 
     def leg(side, ang, lift):
-        hip = np.array([0.0, side * 0.1, hip_z])
-        thigh = _rot_pitch(np.array([0, 0, -0.39]), -ang)
+        # tapered segments (full thigh, narrow knee, calf, slim ankle) and a
+        # wedge-shaped boot, so each leg has a drawn outline rather than a tube
+        hip = np.array([0.0, side * 0.105, hip_z])
+        thigh = _rot_pitch(np.array([0, side * 0.012, -0.425]), -ang)
         knee = hip + thigh
-        shin = _rot_pitch(np.array([0, 0, -0.375]), -ang + lift)
+        shin = _rot_pitch(np.array([0, 0, -0.4]), -ang + lift)
         ankle = knee + shin
         if ankle[2] < 0.07:
             ankle[2] = 0.07
-        toe = ankle + np.array([0.16, 0, -0.04])
-        toe[2] = max(toe[2], 0.035)
-        s.capsule(hip, knee, 0.085, PANTS_, rb=0.07)
-        s.capsule(knee, ankle, 0.075, BOOTS, rb=0.065)
-        s.capsule(knee + np.array([0.0, 0, 0.02]), knee + np.array([0.02, 0, -0.06]), 0.088, BOOTS if bandit else BOOT_CUFF)
-        s.capsule(ankle, toe, 0.06, BOOTS, rb=0.05)
+        toe = ankle + np.array([0.17, 0, -0.035])
+        toe[2] = max(toe[2], 0.04)
+        s.capsule(hip, knee, 0.088, PANTS_, rb=0.058)
+        calf = knee + (ankle - knee) * 0.3
+        s.capsule(knee, calf, 0.058, BOOTS, rb=0.068)
+        s.capsule(calf, ankle, 0.068, BOOTS, rb=0.044)
+        s.capsule(knee + np.array([0.0, 0, 0.03]), knee + np.array([0.012, 0, -0.035]), 0.072, BOOTS if bandit else BOOT_CUFF)
+        s.capsule(ankle, toe, 0.052, BOOTS, rb=0.04)
+        s.box((ankle + toe) / 2 + np.array([0.0, 0, -0.03]), (0.11, 0.047, 0.018), BOOTS, round_=0.012)   # sole
 
     lift_l = 0.7 * max(0.0, -np.cos(phase)) * walk
     lift_r = 0.7 * max(0.0, np.cos(phase)) * walk
     leg(+1, 0.45 * sw, lift_l)
     leg(-1, -0.45 * sw, lift_r)
 
-    # torso
-    pelvis = np.array([0.0, 0, hip_z + 0.05])
-    chest = np.array([0.02, 0, hip_z + 0.43])
-    s.ellipsoid(pelvis + np.array([0, 0, 0.04]), (0.13, 0.17, 0.13), TUNIC_)
-    s.ellipsoid(chest, (0.14, 0.2, 0.2), TUNIC_)
-    s.capsule(pelvis, chest, 0.15, TUNIC_)
-    # tunic skirt flare
-    s.cyl((0.0, 0.0), 0.19, hip_z - 0.18, hip_z + 0.05, TUNIC_, round_=0.05)
+    # torso: broad shoulders tapering to a belted waist, tunic skirt flaring below
+    pelvis = np.array([0.0, 0, hip_z + 0.04])
+    chest = np.array([0.015, 0, hip_z + 0.42])
+    waist = np.array([0.005, 0, hip_z + 0.17])
+    s.ellipsoid(pelvis + np.array([0, 0, 0.03]), (0.115, 0.15, 0.11), TUNIC_)
+    s.capsule(waist, chest + np.array([0, 0, -0.06]), 0.105, TUNIC_, rb=0.14)
+    s.ellipsoid(chest + np.array([0, 0, 0.02]), (0.125, 0.215, 0.12), TUNIC_)          # shoulder yoke
+    # tunic skirt: narrow at the belt, flared and cut square at the hem
+    s.capsule((0.0, 0.0, hip_z + 0.07), (0.0, 0.0, hip_z - 0.07), 0.125, TUNIC_, rb=0.17)
+    s.cyl((0.0, 0.0), 0.185, hip_z - 0.2, hip_z - 0.07, TUNIC_, round_=0.015)
     # belt with buckle and pouch
-    s.cyl((0.0, 0.0), 0.175, hip_z + 0.04, hip_z + 0.1, LEATHER_, round_=0.02)
-    s.box((0.17, 0.0, hip_z + 0.07), (0.02, 0.04, 0.035), BRASS)
-    s.box((0.06, 0.17, hip_z - 0.02), (0.06, 0.035, 0.07), LEATHER_, round_=0.02)
-    # leather chest strap / bodice
-    s.ellipsoid(chest + np.array([0.04, 0, -0.06]), (0.12, 0.175, 0.13), LEATHER_)
-    # neck & head
-    neck = chest + np.array([0.0, 0, 0.18])
-    head = neck + np.array([0.02, 0, 0.17])
-    s.capsule(neck, neck + np.array([0, 0, 0.08]), 0.06, SKIN_)
-    s.ellipsoid(head, (0.12, 0.11, 0.13), SKIN_)
-    s.sphere(head + np.array([0.105, 0.04, 0.02]), 0.016, EYE)
-    s.sphere(head + np.array([0.105, -0.04, 0.02]), 0.016, EYE)
-    s.sphere(head + np.array([0.12, 0.0, -0.02]), 0.022, SKIN_)
+    s.cyl((0.0, 0.0), 0.142, hip_z + 0.085, hip_z + 0.135, LEATHER_, round_=0.015)
+    s.box((0.14, 0.0, hip_z + 0.11), (0.02, 0.035, 0.032), BRASS)
+    s.box((0.05, 0.155, hip_z + 0.02), (0.055, 0.03, 0.065), LEATHER_, round_=0.02)
+    # leather bodice
+    s.ellipsoid(chest + np.array([0.035, 0, -0.07]), (0.105, 0.15, 0.125), LEATHER_)
+    # neck & head (a little smaller: about 7.5 heads tall)
+    neck = chest + np.array([0.0, 0, 0.15])
+    head = neck + np.array([0.02, 0, 0.165])
+    s.capsule(neck - np.array([0, 0, 0.02]), neck + np.array([0.005, 0, 0.08]), 0.05, SKIN_)
+    s.ellipsoid(head, (0.108, 0.095, 0.12), SKIN_)
+    s.ellipsoid(head + np.array([0.03, 0, -0.085]), (0.07, 0.065, 0.05), SKIN_)        # jaw / chin
+    s.sphere(head + np.array([0.098, 0.036, 0.015]), 0.014, EYE)
+    s.sphere(head + np.array([0.098, -0.036, 0.015]), 0.014, EYE)
+    s.sphere(head + np.array([0.11, 0.0, -0.025]), 0.018, SKIN_)
     # voluminous curly hair: clustered noisy blobs around back/top/sides
     hair_pts = [(-0.05, 0, 0.06, 0.15), (-0.02, 0, 0.11, 0.13), (-0.1, 0.0, -0.02, 0.13),
                 (-0.04, 0.12, 0.02, 0.11), (-0.04, -0.12, 0.02, 0.11), (0.04, 0.1, 0.08, 0.09),
@@ -120,19 +128,20 @@ def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0, weapon="iron_sword", swing
                 (-0.12, 0.0, -0.14, 0.11), (-0.06, 0.15, -0.14, 0.08), (-0.06, -0.15, -0.14, 0.08),
                 (0.07, 0.0, 0.12, 0.08)]
     if bandit:
-        s.ellipsoid(head + np.array([-0.025, 0, 0.03]), (0.15, 0.145, 0.16), BANDIT["hood"], displace=(0.01, 14.0, 3))
-        s.ellipsoid(head + np.array([0.06, 0, -0.07]), (0.07, 0.115, 0.05), BANDIT["hood"])  # face scarf
+        s.ellipsoid(head + np.array([-0.025, 0, 0.03]), (0.135, 0.125, 0.15), BANDIT["hood"], displace=(0.01, 14.0, 3))
+        s.capsule(head + np.array([-0.06, 0, 0.13]), head + np.array([-0.13, 0, 0.17]), 0.05, BANDIT["hood"], rb=0.015)  # hood peak
+        s.ellipsoid(head + np.array([0.06, 0, -0.07]), (0.065, 0.1, 0.045), BANDIT["hood"])  # face scarf
         s.capsule(head + np.array([-0.1, 0, -0.08]), chest + np.array([-0.14, 0, 0.12]), 0.07, BANDIT["hood"])
     else:
         for i, (x, y, z, r) in enumerate(hair_pts):
             # fuller at the back and sides; kept off the face so it stays visible
-            k = 1.0 if x > 0 else 1.14
-            s.sphere(head + np.array([x * k - (0.0 if x > 0 else 0.01), y * 1.12, z * 1.06]), r * (0.95 if x > 0 else 1.1),
+            k = 0.9 if x > 0 else 1.0
+            s.sphere(head + np.array([x * k - (0.0 if x > 0 else 0.01), y * 0.98, z * 0.95]), r * (0.82 if x > 0 else 0.95),
                      HAIR, displace=(0.03, 30.0, 50 + i))
     # cloak: hangs from shoulders behind the back, swings with gait
     sway = 0.08 * walk * (0.6 + 0.4 * np.cos(2 * phase))
     top = chest + np.array([-0.12, 0, 0.13])
-    bot = np.array([-0.22 - sway, 0, 0.42 + bob])
+    bot = np.array([-0.24 - sway, 0, 0.36 + bob])
     cl_dir = bot - top
     ang = np.arctan2(-cl_dir[0], -cl_dir[2])
     from sdf import rot_axis_mat
@@ -140,24 +149,28 @@ def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0, weapon="iron_sword", swing
     L = np.linalg.norm(cl_dir)
     if not bandit:
         Rc = rot_axis_mat((0, 1, 0), -ang)
-        s.box((0, 0, 0), (0.035, 0.215, L / 2), CLOAK, round_=0.035, T=mid, R=Rc)
+        # cloak: narrow at the shoulders, wider at a square hem
+        s.box((0, 0, L * 0.2), (0.03, 0.17, L * 0.3), CLOAK, round_=0.03, T=mid, R=Rc)
+        s.box((0, 0, -L * 0.2), (0.03, 0.215, L * 0.3), CLOAK, round_=0.02, T=mid, R=Rc)
         # pale hem band so the cloak edge reads from behind
-        s.box((0, 0, -L / 2 + 0.035), (0.04, 0.22, 0.028), CLOAK_TRIM, round_=0.02, T=mid, R=Rc)
+        s.box((0, 0, -L / 2 + 0.035), (0.036, 0.22, 0.026), CLOAK_TRIM, round_=0.012, T=mid, R=Rc)
         s.capsule(top + np.array([0.04, 0.2, 0]), top + np.array([0.04, -0.2, 0]), 0.058, CLOAK)
         s.sphere(chest + np.array([0.13, 0.0, 0.15]), 0.03, BRASS)   # cloak clasp
 
     # arms. swing in [0,1] = attack progress (windup until 0.45, strike, recover)
     bow = weapon == "hunting_bow"
     def arm(side, pitch, bend, raise_out=0.0):
-        sh = chest + np.array([-0.01, side * 0.23, 0.11])
-        s.sphere(sh, 0.085, LEATHER_)
-        up = _rot_pitch(np.array([0, side * (0.04 + raise_out), -0.28]), -pitch)
+        # arms hang a little clear of the body so there is daylight between
+        # arm and waist in the silhouette; tapered to the wrist
+        sh = chest + np.array([-0.01, side * 0.225, 0.07])
+        s.ellipsoid(sh + np.array([0, side * 0.01, 0.015]), (0.08, 0.075, 0.062), LEATHER_)     # shoulder cap
+        up = _rot_pitch(np.array([0, side * (0.075 + raise_out), -0.29]), -pitch)
         elbow = sh + up
-        fore = _rot_pitch(np.array([0, 0, -0.26]), -pitch - bend)
+        fore = _rot_pitch(np.array([0, -side * 0.02, -0.27]), -pitch - bend)
         hand = elbow + fore
-        s.capsule(sh, elbow, 0.062, TUNIC_ if bandit else SHIRT, rb=0.055)
-        s.capsule(elbow, hand, 0.052, LEATHER_, rb=0.045)
-        s.sphere(hand, 0.045, SKIN_)
+        s.capsule(sh, elbow, 0.058, TUNIC_ if bandit else SHIRT, rb=0.045)
+        s.capsule(elbow, hand, 0.05, LEATHER_, rb=0.036)
+        s.ellipsoid(hand + np.array([0, 0, -0.012]), (0.036, 0.03, 0.045), SKIN_)
         return hand
 
     attacking = swing >= 0.0
@@ -280,31 +293,32 @@ def skeleton_pose(phase=0.0, walk=1.0, swing=-1.0):
     """Skeleton warrior facing +x, same height class as the player."""
     s = Scene()
     sw = np.sin(phase) * walk
-    hip_z = 0.82 - 0.02 * abs(np.cos(phase)) * walk
+    hip_z = 0.86 - 0.02 * abs(np.cos(phase)) * walk     # same build as the living humanoids
     for side, ang in ((1, 0.4 * sw), (-1, -0.4 * sw)):
-        hip = np.array([0, side * 0.09, hip_z])
-        knee = hip + _rot_pitch(np.array([0, 0, -0.38]), -ang)
-        ankle = knee + _rot_pitch(np.array([0, 0, -0.37]), -ang + 0.25 * max(0, -np.cos(phase)) * walk)
+        hip = np.array([0, side * 0.1, hip_z])
+        knee = hip + _rot_pitch(np.array([0, 0, -0.425]), -ang)
+        ankle = knee + _rot_pitch(np.array([0, 0, -0.4]), -ang + 0.25 * max(0, -np.cos(phase)) * walk)
         ankle[2] = max(ankle[2], 0.05)
-        s.capsule(hip, knee, 0.03, BONE_M)
-        s.capsule(knee, ankle, 0.026, BONE_M)
-        s.sphere(knee, 0.04, BONE_M)
+        s.capsule(hip, knee, 0.04, BONE_M, rb=0.03)
+        s.capsule(knee, ankle, 0.034, BONE_M, rb=0.026)
+        s.sphere(knee, 0.048, BONE_M)
         s.capsule(ankle, ankle + np.array([0.12, 0, -0.02]), 0.03, BONE_M, rb=0.02)
     s.ellipsoid((0, 0, hip_z + 0.03), (0.08, 0.14, 0.06), BONE_M)
     chest = np.array([0.02, 0, hip_z + 0.42])
-    s.capsule((0, 0, hip_z), chest, 0.03, BONE_M)
+    s.capsule((0, 0, hip_z), chest, 0.036, BONE_M)
     for k in range(4):
         z = hip_z + 0.22 + k * 0.065
-        r = 0.13 - abs(k - 1.5) * 0.015
-        s.torus_z((0.02, 0, z), r, 0.014, BONE_M)
-    head = chest + np.array([0.03, 0, 0.27])
-    s.sphere(head, 0.115, BONE_M)
+        r = 0.135 - abs(k - 1.5) * 0.015
+        s.torus_z((0.02, 0, z), r, 0.019, BONE_M)
+    head = chest + np.array([0.03, 0, 0.3])
+    s.ellipsoid(head, (0.105, 0.095, 0.11), BONE_M)
     s.ellipsoid(head + np.array([0.06, 0, -0.08]), (0.07, 0.075, 0.04), BONE_M)
     for y in (-1, 1):
         s.sphere(head + np.array([0.09, y * 0.045, 0.0]), 0.03, SOCKET)
     for side in (1, -1):
-        sh = chest + np.array([0, side * 0.2, 0.08])
-        s.sphere(sh, 0.05, BONE_M)
+        sh = chest + np.array([0, side * 0.215, 0.08])
+        s.sphere(sh, 0.055, BONE_M)
+        s.capsule(chest + np.array([0, 0, 0.08]), sh, 0.026, BONE_M)   # collar bone
         if side == -1 and swing >= 0:
             if swing < 0.5:
                 k = swing / 0.5
@@ -316,10 +330,11 @@ def skeleton_pose(phase=0.0, walk=1.0, swing=-1.0):
                 rp, el = 0.9, -0.6
         else:
             rp, el = (0.15 * sw if side == -1 else -0.35 * sw), -0.6
-        elbow = sh + _rot_pitch(np.array([0, side * 0.03, -0.28]), -rp)
-        hand = elbow + _rot_pitch(np.array([0, 0, -0.25]), -rp - 0.3)
-        s.capsule(sh, elbow, 0.025, BONE_M)
-        s.capsule(elbow, hand, 0.022, BONE_M)
+        elbow = sh + _rot_pitch(np.array([0, side * 0.06, -0.29]), -rp)
+        hand = elbow + _rot_pitch(np.array([0, 0, -0.27]), -rp - 0.3)
+        s.capsule(sh, elbow, 0.032, BONE_M, rb=0.026)
+        s.capsule(elbow, hand, 0.028, BONE_M, rb=0.022)
+        s.sphere(hand, 0.034, BONE_M)
         if side == -1:
             bdir = np.array([np.cos(el), -0.15, np.sin(el)])
             add_sword(s, hand, bdir / np.linalg.norm(bdir), blade_mat=RUSTY)

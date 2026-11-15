@@ -137,3 +137,29 @@ These cover picking by sprite pixels, depth sorting, door and chest frames,
 weapon layers and energy anchors, drag and drop and collision on the new art.
 Not verified: a human eye on a real monitor, and the persistence suites
 (no server or database code changed).
+
+## 8. Follow-up: sharper humanoid shape
+
+Requested after pass 1, with a classic UO crowd scene as the reference for
+build and silhouette (not copied).
+
+- **Build:** legs are now half the figure's height, the head is a little
+  smaller (about 7.5 heads tall) and the hair mass is tighter. Overall height
+  is unchanged (73 px on the 64×32 set).
+- **Silhouette:** shoulders are broad over a belted waist; the tunic skirt
+  flares to a square hem; limbs taper (full thigh, narrow knee, calf, slim
+  ankle; forearm to wrist); boots have a sole and toe. Arms hang clear of the
+  body, so there is daylight between arm and waist.
+- **Cloak:** narrow at the shoulders, wider at the hem.
+- **Bandit and skeleton** share the same build. The bandit's hood has a peak;
+  the skeleton's bones are thicker so they survive at 1× and it has collar
+  bones and hands.
+- Regenerated: player (with its three weapon layers), bandit, skeleton, both
+  sets. Frame sizes, pivots and hit boxes are unchanged.
+- Verified at 1920×1080: acceptance 45/45, combat 16/16, display 33/33.
+  The combat walkthrough is timing-sensitive: run on its own (higher frame
+  rate) its scripted clicks on moving creatures can miss. It passes when run
+  alongside the other two, as in every earlier run. The art did not cause
+  this; the test needs hardening.
+
+See `humanoids_before_after_2x.png` (first four figures are the old player).
