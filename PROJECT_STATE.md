@@ -1,6 +1,6 @@
 # Project State
 
-_Last updated: corrective directive "Game scale & readability" (after Slice 005)_
+_Last updated: art pass 1 (after the scale and readability corrective)_
 
 | Slice | Theme | Status |
 |---|---|---|
@@ -12,6 +12,20 @@ _Last updated: corrective directive "Game scale & readability" (after Slice 005)
 
 Native resolution (64×32 vs 96×48) is **still an open director decision**.
 Everything in Slice 002 works with both sets.
+
+## Art pass 1: toward the approved homestead
+
+Assessment, scale recommendation (stay on 64×32), prioritized plan, changes
+and verification: [docs/ART_DIRECTION_PASS_1.md](docs/ART_DIRECTION_PASS_1.md).
+Before/after: `docs/images/art_pass_1/`.
+
+- **Done:** player readability, meadow and paths, trees, bushes and rocks,
+  compact lighter shadows, cottage roof, stone and timber, UI trim. Both sets
+  regenerated; canvas sizes, pivots, anchors and collision unchanged.
+- **Verified:** acceptance 45/45 on both sets, combat 16/16, display 33/33,
+  rules 79, combat 60, multiplayer 93.
+- **Next:** lived-in dressing, animation polish, creature materials, water
+  edge; then a decision on hand-finished or Blender hero assets.
 
 ## Corrective: game scale and readability
 

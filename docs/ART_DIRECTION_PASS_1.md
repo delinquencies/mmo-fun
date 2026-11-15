@@ -114,7 +114,26 @@ Sounds, maps and data files were not touched.
   colour, value structure and material, but it does not have the reference's
   hand-drawn leaf shapes, window detail or prop charm.
 - Tree shadows are still hard-edged shapes.
+- A faint tile-sized light and dark pattern is visible in open grass at some
+  zoom levels (the ground texture repeats every 4 tiles).
 - The wolf, skeleton and sheep only inherited the lighting and shadow
   changes; their materials were not reworked.
 - The hit reaction is still a red flash, and running still reuses the walk
   cycle.
+
+## 7. Verification (all executed, automated)
+
+After regenerating both sets:
+
+| Run | Result |
+|---|---|
+| UI acceptance, 64×32, 1920×1080 | 45/45 |
+| UI acceptance, 96×48, 1920×1080 | 45/45 |
+| Combat walkthrough (Stormcaller layer, bow, creatures), 1920×1080 | 16/16 |
+| Display scale scenario, 1920×1080 | 33/33 |
+| Rules / combat / multiplayer (headless) | 79/79, 60/60, 93/93 |
+
+These cover picking by sprite pixels, depth sorting, door and chest frames,
+weapon layers and energy anchors, drag and drop and collision on the new art.
+Not verified: a human eye on a real monitor, and the persistence suites
+(no server or database code changed).
