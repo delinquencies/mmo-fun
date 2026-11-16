@@ -46,3 +46,9 @@
   goes through `main.cell_to_world_px` / `world_px_to_screen`. Docs:
   `docs/DISPLAY_SCALING.md`. After UI or view changes, run
   `--scenario=display` (and `tests/display_tests.gd`) at 1920x1080.
+- Characters: humanoids are `charkit.CharacterSpec`s rendered with
+  `render_sprite` (tone ramps, no noise materials, no averaging). Do not add
+  world-space noise to character materials. After changing `charkit.py`,
+  `render_sprite` or a spec, rebuild that character and run
+  `python3 tools/forge/validate_sprites.py --determinism`. Docs:
+  `docs/CHARACTER_PIPELINE.md`.

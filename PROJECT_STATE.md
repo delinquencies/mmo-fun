@@ -1,6 +1,6 @@
 # Project State
 
-_Last updated: art pass 1 (after the scale and readability corrective)_
+_Last updated: character pipeline v2 (after art pass 1)_
 
 | Slice | Theme | Status |
 |---|---|---|
@@ -12,6 +12,24 @@ _Last updated: art pass 1 (after the scale and readability corrective)_
 
 Native resolution (64×32 vs 96×48) is **still an open director decision**.
 Everything in Slice 002 works with both sets.
+
+## Character pipeline v2
+
+Audit, pipeline, Blender test, how to add a character, limits and
+verification: [docs/CHARACTER_PIPELINE.md](docs/CHARACTER_PIPELINE.md).
+Images: `docs/images/character_pipeline/`.
+
+- **Built:** a character kit (rig, proportions, clips incl. a real run,
+  costume builder), tone-ramp materials, a sprite finisher (key/fill/rim/AO
+  lighting, one tone per pixel by majority vote, selective line work), and a
+  sprite validator. Player and bandit use it; both sets regenerated.
+- **Blender:** tested with the same character (Cycles, same camera). The
+  renderer was not the limit; recommendation is a hybrid once an artist-made
+  rigged model exists.
+- **Verified:** validator 0 problems, deterministic; acceptance 45/45 on both
+  sets, combat 16/16, display 33/33, rules 79, combat rules 60.
+- **Not done:** skeleton, wolf and sheep on the new path; cloth; a stronger
+  attack clip.
 
 ## Art pass 1: toward the approved homestead
 

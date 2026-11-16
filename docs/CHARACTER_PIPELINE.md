@@ -175,6 +175,23 @@ outline stays coloured.
   about 45 on 96×48 (16 samples per pixel, five animations, three weapon
   layers), on 4 CPU cores.
 
-## 6. Verification
+## 6. Verification (all executed, automated)
 
-Filled in at the end of this change; see below.
+`python3 tools/forge/validate_sprites.py --determinism`: **0 problems** on
+both sets.
+
+| | Old renderer (skeleton, for reference) | New pipeline (player) |
+|---|---|---|
+| Colours in the sheets | 473 | 66 |
+| Pixels with no same-colour neighbour | 63% | 5.5% (64×32), 3.5% (96×48) |
+| Frame size and pivot, 64×32 | 282×207, (125, 143) | 282×207, (125, 143): unchanged |
+| Idle ground contact across 8 facings | – | −1..+4 px of the pivot row |
+| Two renders of one frame | – | byte-identical |
+
+Game runs at 1920×1080 on the new sprites: UI acceptance 45/45 on the 64×32
+set and 45/45 on the 96×48 set, combat walkthrough 16/16 (weapon layers,
+energy anchors, bandit), display scenario 33/33, rules 79/79, combat rules
+60/60.
+
+Not verified: a human eye on a real monitor; the multiplayer and persistence
+suites were not re-run (no code they use changed).
