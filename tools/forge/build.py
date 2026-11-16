@@ -17,7 +17,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from render import render, canvas_for, save_rgba, shadow_rgba, project  # noqa: E402
+from render import render, render_sprite, canvas_for, save_rgba, shadow_rgba, project  # noqa: E402
 from sdf import Scene  # noqa: E402
 import terrain  # noqa: E402
 from models import nature, props, buildings, characters, items  # noqa: E402
@@ -84,6 +84,9 @@ CREATURES = {   # name -> (pose fn, bounds, attack kwarg, death kwarg, walk fram
     "skeleton": (characters.skeleton_pose, ((-1.9, -1.9, 0.0), (1.9, 1.9, 2.0)), "swing", "_fall", 6),
     "bandit": (_bandit, ((-1.9, -1.9, 0.0), (1.9, 1.9, 2.0)), "swing", "_fall", 8),
 }
+
+
+SPRITE_STYLE = {"bandit"}    # creatures finished with the sprite renderer (kit humanoids)
 
 
 # Multi-frame single-facing props (interactive objects). name -> (builder(frac), frames)
@@ -216,17 +219,18 @@ def _body_rotation(spec, yaw):
     return R
 
 
-def build_animated(tile_w, outdir, name, pose_fn, anims, bounds, frame_anchor_keys=(), overlays=None):
+def build_animated(tile_w, outdir, name, pose_fn, anims, bounds, frame_anchor_keys=(), overlays=None, style="scene"):
     """overlays: {overlay_id: (pose_kwargs, mask_materials)}. The base sheet is rendered
     with pose_kwargs_base = {weapon: None}; each overlay sheet holds only the pixels of
     the masked materials taken from a full render, so drawing it over the base gives
     correct occlusion in every facing."""
     """Render an 8-direction sprite sheet per animation. rows = directions."""
+    render = render_sprite if style == "sprite" else globals()["render"]   # characters use the sprite finisher
     bmin, bmax = np.array(bounds[0], float), np.array(bounds[1], float)
     canvas = canvas_for(bmin, bmax, tile_w, with_shadow=True)
     fw, fh = canvas[2], canvas[3]
     meta = {"frame_size": [fw, fh], "pivot": [-canvas[0], -canvas[1]],
-            "directions": characters.DIRECTIONS, "anims": {}}
+            "directions": characters.DIRECTIONS, "anims": {}, "style": style}
     for anim, (nframes, fps, args_fn) in anims.items():
         t = time.time()
         sheet = np.zeros((fh * 8, fw * nframes, 4), np.uint8)
@@ -333,10 +337,12 @@ def main():
                 tw, outdir, "player", characters.adventurer_pose,
                 {"idle": (4, 4, lambda f, n: {"phase": 0.0, "walk": 0.0, "breathe": np.sin(f / n * 2 * np.pi)}),
                  "walk": (8, 10, lambda f, n: {"phase": f / n * 2 * np.pi, "walk": 1.0}),
+                 "run": (8, 8, lambda f, n: {"phase": f / n * 2 * np.pi, "walk": 1.0, "run": 1.0}),
                  "attack": (6, 12, lambda f, n: {"phase": 0.0, "walk": 0.0, "swing": f / (n - 1)}),
                  "death": (4, 8, lambda f, n: {"phase": 0.0, "walk": 0.0, "_fall": f / (n - 1)})},
                 ((-1.9, -1.9, 0.0), (1.9, 1.9, 2.0)),
-                overlays={w: ({"weapon": w}, items.WEAPON_MATERIALS) for w in ("iron_sword", "lightning_sword", "hunting_bow")})
+                overlays={w: ({"weapon": w}, items.WEAPON_MATERIALS) for w in ("iron_sword", "lightning_sword", "hunting_bow")},
+                style="sprite")
         for crit, (fn, bounds, attack_key, death_key, walk_n) in CREATURES.items():
             if not only or crit in only:
                 anims[crit] = build_animated(tw, outdir, crit, fn, {
@@ -344,7 +350,7 @@ def main():
                     "walk": (walk_n, 12, lambda f, n: {"phase": f / n * 2 * np.pi, "walk": 1.0}),
                     "attack": (5, 10, lambda f, n, k=attack_key: {"phase": 0.0, "walk": 0.0, k: f / (n - 1)}),
                     "death": (4, 8, lambda f, n, k=death_key: {"phase": 0.0, "walk": 0.0, k: f / (n - 1)}),
-                }, bounds)
+                }, bounds, style="sprite" if crit in SPRITE_STYLE else "scene")
         if not only or "sheep" in only:
             anims["sheep"] = build_animated(
                 tw, outdir, "sheep", characters.sheep_pose,

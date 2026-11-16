@@ -19,6 +19,8 @@ BOW_WOOD = Material(lambda p, n: ramp(np.abs(np.sin(p[:, 2] * 60 + fbm3(p, 8, 2,
 STRING = Material(_c("#d8d0b8"))
 FLETCH = Material(_c("#c84a2a"))
 WEAPON_MATERIALS = [BLADE, GUARD, GRIP, LIGHTNING_BLADE, RUNE_GUARD, BOW_WOOD, STRING]
+for _m in (BLADE, LIGHTNING_BLADE, STRING):
+    _m.no_outline = True      # sprite renderer: blades and strings are too thin to outline
 
 
 def add_sword(s, grip_center, bdir, up=(0, 0, 1), magic=False, blade_mat=None):

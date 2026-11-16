@@ -89,3 +89,37 @@ def emissive_flat(hexcol, glow):
     base = _c(hexcol)
     g = _c(glow)
     return Material(base, emissive=lambda p, n: np.tile(g, (p.shape[0], 1)))
+
+
+class PaletteMaterial(Material):
+    """A material drawn from a hand-picked tone ramp (dark -> light) instead of
+    noise. The sprite renderer picks one tone per pixel from the lighting, so a
+    surface becomes a few clean colour clusters. `spec` adds a highlight step
+    for metal and polished leather; `detail` marks tiny features (eyes, buckles)
+    that must survive downsampling. In the legacy renderer it behaves as a flat
+    mid-tone material, so one model works in both."""
+
+    def __init__(self, ramp_hex, spec=0.0, gloss=24.0, detail=False, emissive=None, name=""):
+        self.ramp = np.array([_c(h) for h in ramp_hex])
+        self.spec = spec
+        self.gloss = gloss
+        self.detail = detail
+        self.name = name
+        mid = self.ramp[len(self.ramp) // 2]
+        super().__init__(mid, emissive=emissive)
+
+
+def auto_ramp(material, albedo, emissive=None):
+    """Tone ramp for a legacy (noise) material, derived once from its average
+    colour and cached on the material so every frame and facing uses the same
+    tones. Shadows lean cool, highlights lean warm."""
+    r = getattr(material, "_auto_ramp", None)
+    if r is None:
+        base = np.median(albedo, axis=0)
+        if emissive is not None:
+            base = np.clip(base + np.median(emissive, axis=0), 0, 1)
+        cool = np.array([0.92, 0.96, 1.08])
+        warm = np.array([1.06, 1.02, 0.9])
+        r = np.clip(np.array([base * 0.4 * cool, base * 0.62 * cool, base * 0.82, base * 1.0, base * 1.2 * warm]), 0, 1)
+        material._auto_ramp = r
+    return r

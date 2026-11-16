@@ -15,9 +15,11 @@ import numba as nb
 import numpy as np
 
 SPHERE, ELLIPSOID, BOX, CAPSULE, CYLZ, GABLE, CYLAX, TORUSZ = range(8)
-REC = 40
+REC = 42
 P0 = 23  # first parameter slot
 MODE = 39  # 0 = union, 1 = subtract (carves every union primitive)
+GROUP = 40  # 0 = hard union; 1 or 2 = smooth-blend group (organic joins)
+BLEND = 41  # blend radius k for the group's polynomial smooth-min
 
 
 def rot_z_mat(a):
@@ -52,7 +54,10 @@ class Scene:
         return self._mat_ids[k]
 
     # -- generic add -----------------------------------------------------
-    def _add(self, typ, mat, params, lmin, lmax, T=(0, 0, 0), R=None, displace=None):
+    def _add(self, typ, mat, params, lmin, lmax, T=(0, 0, 0), R=None, displace=None, blend=None):
+        """blend=(group, k): primitives sharing a group (1 or 2) are joined with a
+        smooth minimum of radius k, so limbs flow into each other like anatomy
+        instead of meeting in a crease."""
         R = np.eye(3) if R is None else np.asarray(R, float)
         T = np.asarray(T, float)
         rec = np.zeros(REC)
@@ -62,6 +67,9 @@ class Scene:
         if displace:
             rec[8], rec[9], rec[10] = displace
             pad += abs(displace[0]) * 1.1
+        if blend:
+            rec[GROUP], rec[BLEND] = blend
+            pad += blend[1] * 0.3
         corners = np.array([[x, y, z] for x in (lmin[0], lmax[0])
                             for y in (lmin[1], lmax[1]) for z in (lmin[2], lmax[2])])
         w = corners @ R.T + T
@@ -295,6 +303,12 @@ def scene_eval(recs, x, y, z):
     best = 1e9
     bi = -1
     sub = -1e9
+    g1 = 1e9      # smooth-blend group accumulators (distance, raw nearest, index)
+    g1r = 1e9
+    g1i = -1
+    g2 = 1e9
+    g2r = 1e9
+    g2i = -1
     for i in range(recs.shape[0]):
         bd = _box_dist(recs[i], x, y, z)
         if recs[i, MODE] > 0.5:
@@ -302,6 +316,32 @@ def scene_eval(recs, x, y, z):
                 ds = -_prim(recs[i], x, y, z)
                 if ds > sub:
                     sub = ds
+            continue
+        grp = recs[i, GROUP]
+        if grp > 0.5:
+            k = recs[i, BLEND]
+            if bd > k + 0.04:
+                d = bd
+            else:
+                d = _prim(recs[i], x, y, z)
+            if grp < 1.5:
+                if g1 > 1e8:
+                    g1 = d
+                else:
+                    h = max(k - abs(g1 - d), 0.0) / k
+                    g1 = min(g1, d) - h * h * k * 0.25
+                if d < g1r:
+                    g1r = d
+                    g1i = i
+            else:
+                if g2 > 1e8:
+                    g2 = d
+                else:
+                    h = max(k - abs(g2 - d), 0.0) / k
+                    g2 = min(g2, d) - h * h * k * 0.25
+                if d < g2r:
+                    g2r = d
+                    g2i = i
             continue
         if bd >= best:
             continue
@@ -312,6 +352,12 @@ def scene_eval(recs, x, y, z):
         if d < best:
             best = d
             bi = i
+    if g1 < best:
+        best = g1
+        bi = g1i
+    if g2 < best:
+        best = g2
+        bi = g2i
     if sub > best:
         best = sub
     return best, bi

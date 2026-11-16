@@ -60,159 +60,59 @@ BANDIT = {   # dull greys and a rust hood: reads as "not the player" at a glance
 }
 
 
-def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0, weapon="iron_sword", swing=-1.0, outfit="adventurer"):
-    """Return (Scene, anchors) for a walk phase in radians. walk=0 -> idle."""
-    s = Scene()
-    sw = np.sin(phase) * walk
-    bandit = outfit == "bandit"
-    TUNIC_, LEATHER_, PANTS_, SKIN_ = (BANDIT["cloth"], BANDIT["leather"], BANDIT["pants"], BANDIT["skin"]) if bandit \
-        else (TUNIC, LEATHER, PANTS, SKIN)
-    bob = -0.03 * np.cos(2 * phase) * walk + 0.008 * breathe
-    hip_z = 0.86 + bob        # long-legged: legs are half the figure's height
-    anchors = {}
+# --- humanoids built with the character kit (tools/forge/charkit.py) ----------
+import charkit
+from charkit import P
 
-    def leg(side, ang, lift):
-        # tapered segments (full thigh, narrow knee, calf, slim ankle) and a
-        # wedge-shaped boot, so each leg has a drawn outline rather than a tube
-        hip = np.array([0.0, side * 0.105, hip_z])
-        thigh = _rot_pitch(np.array([0, side * 0.012, -0.425]), -ang)
-        knee = hip + thigh
-        shin = _rot_pitch(np.array([0, 0, -0.4]), -ang + lift)
-        ankle = knee + shin
-        if ankle[2] < 0.07:
-            ankle[2] = 0.07
-        toe = ankle + np.array([0.17, 0, -0.035])
-        toe[2] = max(toe[2], 0.04)
-        s.capsule(hip, knee, 0.088, PANTS_, rb=0.058)
-        calf = knee + (ankle - knee) * 0.3
-        s.capsule(knee, calf, 0.058, BOOTS, rb=0.068)
-        s.capsule(calf, ankle, 0.068, BOOTS, rb=0.044)
-        s.capsule(knee + np.array([0.0, 0, 0.03]), knee + np.array([0.012, 0, -0.035]), 0.072, BOOTS if bandit else BOOT_CUFF)
-        s.capsule(ankle, toe, 0.052, BOOTS, rb=0.04)
-        s.box((ankle + toe) / 2 + np.array([0.0, 0, -0.03]), (0.11, 0.047, 0.018), BOOTS, round_=0.012)   # sole
+_EYE = P("#140c08", "#140c08", "#140c08", detail=True)
+_BRASS = P("#4a3410", "#86621e", "#be9434", "#e6c35a", "#fbe89a", spec=1.0, gloss=14.0, detail=True)
 
-    lift_l = 0.7 * max(0.0, -np.cos(phase)) * walk
-    lift_r = 0.7 * max(0.0, np.cos(phase)) * walk
-    leg(+1, 0.45 * sw, lift_l)
-    leg(-1, -0.45 * sw, lift_r)
+ADVENTURER = charkit.CharacterSpec(
+    name="adventurer",
+    skin=P("#5a3220", "#86523a", "#ae7650", "#cc9568", "#e4b488"),
+    hair=P("#060404", "#0f0907", "#1a100b", "#281912", "#3a261a"),
+    tunic=P("#2e3818", "#4c5a26", "#6f7e38", "#90a04e", "#b0bf6a"),
+    sleeve=P("#74684c", "#a69a78", "#cdc19e", "#e6dcbe", "#f6f0da"),
+    leather=P("#3c200e", "#673a1a", "#935c2a", "#b98242", "#d8a862", spec=0.6, gloss=10.0),
+    trousers=P("#20150c", "#38261a", "#513a28", "#6a4e36", "#836448"),
+    boots=P("#170e08", "#2c1b10", "#43291a", "#5b3c28", "#735036"),
+    cuff=P("#4a2e14", "#7a5226", "#a67a40", "#c69e5c", "#e0be7e"),
+    cloak=P("#2c120c", "#502616", "#763c24", "#995636", "#b9734c"),
+    cloak_trim=P("#5a4214", "#96722a", "#c8a044", "#e8c868", "#fbe89a"),
+    metal=_BRASS, eye=_EYE)
 
-    # torso: broad shoulders tapering to a belted waist, tunic skirt flaring below
-    pelvis = np.array([0.0, 0, hip_z + 0.04])
-    chest = np.array([0.015, 0, hip_z + 0.42])
-    waist = np.array([0.005, 0, hip_z + 0.17])
-    s.ellipsoid(pelvis + np.array([0, 0, 0.03]), (0.115, 0.15, 0.11), TUNIC_)
-    s.capsule(waist, chest + np.array([0, 0, -0.06]), 0.105, TUNIC_, rb=0.14)
-    s.ellipsoid(chest + np.array([0, 0, 0.02]), (0.125, 0.215, 0.12), TUNIC_)          # shoulder yoke
-    # tunic skirt: narrow at the belt, flared and cut square at the hem
-    s.capsule((0.0, 0.0, hip_z + 0.07), (0.0, 0.0, hip_z - 0.07), 0.125, TUNIC_, rb=0.17)
-    s.cyl((0.0, 0.0), 0.185, hip_z - 0.2, hip_z - 0.07, TUNIC_, round_=0.015)
-    # belt with buckle and pouch
-    s.cyl((0.0, 0.0), 0.142, hip_z + 0.085, hip_z + 0.135, LEATHER_, round_=0.015)
-    s.box((0.14, 0.0, hip_z + 0.11), (0.02, 0.035, 0.032), BRASS)
-    s.box((0.05, 0.155, hip_z + 0.02), (0.055, 0.03, 0.065), LEATHER_, round_=0.02)
-    # leather bodice
-    s.ellipsoid(chest + np.array([0.035, 0, -0.07]), (0.105, 0.15, 0.125), LEATHER_)
-    # neck & head (a little smaller: about 7.5 heads tall)
-    neck = chest + np.array([0.0, 0, 0.15])
-    head = neck + np.array([0.02, 0, 0.165])
-    s.capsule(neck - np.array([0, 0, 0.02]), neck + np.array([0.005, 0, 0.08]), 0.05, SKIN_)
-    s.ellipsoid(head, (0.108, 0.095, 0.12), SKIN_)
-    s.ellipsoid(head + np.array([0.03, 0, -0.085]), (0.07, 0.065, 0.05), SKIN_)        # jaw / chin
-    s.sphere(head + np.array([0.098, 0.036, 0.015]), 0.014, EYE)
-    s.sphere(head + np.array([0.098, -0.036, 0.015]), 0.014, EYE)
-    s.sphere(head + np.array([0.11, 0.0, -0.025]), 0.018, SKIN_)
-    # voluminous curly hair: clustered noisy blobs around back/top/sides
-    hair_pts = [(-0.05, 0, 0.06, 0.15), (-0.02, 0, 0.11, 0.13), (-0.1, 0.0, -0.02, 0.13),
-                (-0.04, 0.12, 0.02, 0.11), (-0.04, -0.12, 0.02, 0.11), (0.04, 0.1, 0.08, 0.09),
-                (0.04, -0.1, 0.08, 0.09), (-0.09, 0.1, -0.1, 0.1), (-0.09, -0.1, -0.1, 0.1),
-                (-0.12, 0.0, -0.14, 0.11), (-0.06, 0.15, -0.14, 0.08), (-0.06, -0.15, -0.14, 0.08),
-                (0.07, 0.0, 0.12, 0.08)]
-    if bandit:
-        s.ellipsoid(head + np.array([-0.025, 0, 0.03]), (0.135, 0.125, 0.15), BANDIT["hood"], displace=(0.01, 14.0, 3))
-        s.capsule(head + np.array([-0.06, 0, 0.13]), head + np.array([-0.13, 0, 0.17]), 0.05, BANDIT["hood"], rb=0.015)  # hood peak
-        s.ellipsoid(head + np.array([0.06, 0, -0.07]), (0.065, 0.1, 0.045), BANDIT["hood"])  # face scarf
-        s.capsule(head + np.array([-0.1, 0, -0.08]), chest + np.array([-0.14, 0, 0.12]), 0.07, BANDIT["hood"])
+BANDIT_SPEC = charkit.CharacterSpec(
+    name="bandit",
+    skin=P("#5c4030", "#866048", "#a87c5c", "#c09672", "#d6b08c"),
+    hood=P("#3a140c", "#622416", "#8c3a22", "#b05232", "#cc7048"),
+    tunic=P("#2a241e", "#463c34", "#63564a", "#7e6e5e", "#988876"),
+    sleeve=P("#2a241e", "#463c34", "#63564a", "#7e6e5e", "#988876"),
+    leather=P("#1c140e", "#33251a", "#4c3828", "#664e38", "#80644a"),
+    trousers=P("#1c1a16", "#34302a", "#4e483e", "#655d50", "#7c7466"),
+    boots=P("#120c08", "#241810", "#38261a", "#4c3626", "#604632"),
+    cuff=P("#120c08", "#241810", "#38261a", "#4c3626", "#604632"),
+    metal=_BRASS, eye=_EYE)
+
+SPECS = {"adventurer": ADVENTURER, "bandit": BANDIT_SPEC}
+
+
+def adventurer_pose(phase=0.0, walk=1.0, breathe=0.0, weapon="iron_sword", swing=-1.0, outfit="adventurer", run=0.0):
+    """Build one frame of a kit humanoid. Kept as the forge's entry point:
+    phase (radians) drives walk or run; breathe drives idle; swing in [0, 1]
+    plays the attack (sword swing, or a bow shot when a bow is held)."""
+    t = (phase / (2 * np.pi)) % 1.0
+    if swing >= 0.0:
+        pose = charkit.clip_shoot(swing) if weapon == "hunting_bow" else charkit.clip_attack(swing)
+    elif run > 0.0:
+        pose = charkit.clip_run(t)
+    elif walk >= 0.5:
+        pose = charkit.clip_walk(t)
     else:
-        for i, (x, y, z, r) in enumerate(hair_pts):
-            # fuller at the back and sides; kept off the face so it stays visible
-            k = 0.9 if x > 0 else 1.0
-            s.sphere(head + np.array([x * k - (0.0 if x > 0 else 0.01), y * 0.98, z * 0.95]), r * (0.82 if x > 0 else 0.95),
-                     HAIR, displace=(0.03, 30.0, 50 + i))
-    # cloak: hangs from shoulders behind the back, swings with gait
-    sway = 0.08 * walk * (0.6 + 0.4 * np.cos(2 * phase))
-    top = chest + np.array([-0.12, 0, 0.13])
-    bot = np.array([-0.24 - sway, 0, 0.36 + bob])
-    cl_dir = bot - top
-    ang = np.arctan2(-cl_dir[0], -cl_dir[2])
-    from sdf import rot_axis_mat
-    mid = (top + bot) / 2
-    L = np.linalg.norm(cl_dir)
-    if not bandit:
-        Rc = rot_axis_mat((0, 1, 0), -ang)
-        # cloak: narrow at the shoulders, wider at a square hem
-        s.box((0, 0, L * 0.2), (0.03, 0.17, L * 0.3), CLOAK, round_=0.03, T=mid, R=Rc)
-        s.box((0, 0, -L * 0.2), (0.03, 0.215, L * 0.3), CLOAK, round_=0.02, T=mid, R=Rc)
-        # pale hem band so the cloak edge reads from behind
-        s.box((0, 0, -L / 2 + 0.035), (0.036, 0.22, 0.026), CLOAK_TRIM, round_=0.012, T=mid, R=Rc)
-        s.capsule(top + np.array([0.04, 0.2, 0]), top + np.array([0.04, -0.2, 0]), 0.058, CLOAK)
-        s.sphere(chest + np.array([0.13, 0.0, 0.15]), 0.03, BRASS)   # cloak clasp
-
-    # arms. swing in [0,1] = attack progress (windup until 0.45, strike, recover)
-    bow = weapon == "hunting_bow"
-    def arm(side, pitch, bend, raise_out=0.0):
-        # arms hang a little clear of the body so there is daylight between
-        # arm and waist in the silhouette; tapered to the wrist
-        sh = chest + np.array([-0.01, side * 0.225, 0.07])
-        s.ellipsoid(sh + np.array([0, side * 0.01, 0.015]), (0.08, 0.075, 0.062), LEATHER_)     # shoulder cap
-        up = _rot_pitch(np.array([0, side * (0.075 + raise_out), -0.29]), -pitch)
-        elbow = sh + up
-        fore = _rot_pitch(np.array([0, -side * 0.02, -0.27]), -pitch - bend)
-        hand = elbow + fore
-        s.capsule(sh, elbow, 0.058, TUNIC_ if bandit else SHIRT, rb=0.045)
-        s.capsule(elbow, hand, 0.05, LEATHER_, rb=0.036)
-        s.ellipsoid(hand + np.array([0, 0, -0.012]), (0.036, 0.03, 0.045), SKIN_)
-        return hand
-
-    attacking = swing >= 0.0
-    if bow:
-        draw = 0.0
-        if attacking:
-            draw = min(1.0, swing / 0.6) if swing < 0.75 else max(0.0, 1.0 - (swing - 0.75) * 4.0)
-        lp = 1.45 * (1.0 if attacking else 0.25) - (0.0 if attacking else 0.45 * sw)
-        lhand = arm(+1, lp, 0.05, 0.05)
-        rhand = arm(-1, 1.2 * (1.0 if attacking else 0.2), 1.3 * (1.0 if attacking else 0.25))
-        fwd = np.array([1.0, 0.0, 0.0]) if attacking else np.array([0.6, 0.0, -0.8])
-        upd = np.array([0.0, 0.25, 1.0]) if attacking else np.array([0.8, 0.0, 0.6])
-        nock = add_bow(s, lhand, upd, fwd, draw)
-        anchors["blade_base"] = lhand
-        anchors["blade_tip"] = lhand + fwd * 0.5
-    else:
-        arm(+1, -0.45 * sw if not attacking else 0.25, 0.2)
-        if attacking:
-            if swing < 0.45:
-                k = swing / 0.45
-                rp, el = -0.2 - 1.9 * k, -0.69 + 1.95 * k        # wind up: blade raised behind
-            elif swing < 0.7:
-                k = (swing - 0.45) / 0.25
-                rp, el = -2.1 + 3.1 * k, 1.26 - 1.9 * k          # strike down and forward
-            else:
-                k = (swing - 0.7) / 0.3
-                rp, el = 1.0 - 0.8 * k, -0.64 - 0.05 * k        # recover
-            hand = arm(-1, rp, 0.3)
-            bdir = np.array([np.cos(el), -0.18, np.sin(el)])
-        else:
-            hand = arm(-1, 0.18 * sw, 0.35)
-            bdir = np.array([0.62, -0.18, -0.52])
-        bdir = bdir / np.linalg.norm(bdir)
-        if weapon in ("iron_sword", "lightning_sword", "rusty_dagger"):
-            hilt, tip = add_sword(s, hand, bdir, magic=weapon == "lightning_sword")
-        else:
-            hilt = hand + bdir * 0.07
-            tip = hilt + bdir * 0.74
-        anchors["blade_base"] = hilt
-        anchors["blade_tip"] = tip
-    anchors["head"] = head + np.array([0, 0, 0.2])
-    return s, anchors
+        # idle: `breathe` (player) or a slow `phase` (creatures) drives the clip
+        pose = charkit.clip_idle(np.arcsin(np.clip(breathe, -1, 1)) / (2 * np.pi) if walk == 0.0 else t)
+        if weapon == "hunting_bow":
+            pose.arm, pose.elbow = (0.36, 0.24), (0.05, 0.33)
+    return charkit.build(SPECS[outfit], pose, weapon, add_sword, add_bow)
 
 
 WOOL = Material(lambda p, n: ramp(value3(p[:, 0] * 45, p[:, 1] * 45, p[:, 2] * 45, 2) * 0.7 + fbm3(p, 8, 2, 1) * 0.4,

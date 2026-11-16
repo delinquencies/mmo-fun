@@ -233,7 +233,7 @@ func _sync_entities(dt: float) -> void:
 
 
 ## Shared animation choice for players and creatures: death > attack > walk > idle.
-func _animate(av: ActorSprite, id: String, moving: bool, anim_t: float, facing: int, dead: bool) -> void:
+func _animate(av: ActorSprite, id: String, moving: bool, anim_t: float, facing: int, dead: bool, running := false) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	var pr: Dictionary = present.get(id, {})
 	var anims: Dictionary = av.meta["anims"]
@@ -249,7 +249,9 @@ func _animate(av: ActorSprite, id: String, moving: bool, anim_t: float, facing: 
 		if fa < int(anims["attack"]["frames"]):
 			av.show_frame("attack", fa, facing)
 			return
-	var anim := "walk" if moving else "idle"
+	# anim_t already advances faster while running, so the run sheet's own fps
+	# is authored for that clock (see tools/forge/build.py)
+	var anim := ("run" if running and anims.has("run") else "walk") if moving else "idle"
 	av.show_frame(anim, int(floor(anim_t * av.fps(anim))), facing)
 
 
@@ -469,7 +471,7 @@ func sync(_dt: float) -> void:
 		av.set_overlay(layer)
 		av.position = Iso.to_screen(ps.render_pos, tw)
 		var dead := ps.combat != null and ps.combat.dead
-		_animate(av, a, ps.render_moving, ps.anim_time, ps.render_facing, dead)
+		_animate(av, a, ps.render_moving, ps.anim_time, ps.render_facing, dead, ps.render_running)
 		av.modulate = Color(0.65, 0.65, 0.7, 0.6) if ps.linkdead else _flash_color(a, dead)
 		if av.energy:
 			var magic := it != null and sim.items.def(it.def_id).effect == "lightning"
